@@ -1,0 +1,21 @@
+# リバースプロキシ（HTTPS 化と証明書の自動更新）。ドメインは .env の DOMAIN を使う。
+{$DOMAIN} {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+	}
+	request_body {
+		# 20MB × 10枚の一括アップロードに余裕を持たせる
+		max_size 210MB
+	}
+	reverse_proxy app:3000
+	log {
+		output file /data/access.log {
+			roll_size 10mb
+			roll_keep 5
+		}
+		format json
+	}
+}

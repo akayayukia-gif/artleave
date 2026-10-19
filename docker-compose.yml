@@ -1,0 +1,76 @@
+# 本番用（Raspberry Pi）。起動: docker compose up -d --build
+# 詳細は docs/設計書/08_インフラ・ネットワーク構成図.md、13_環境構築・デプロイ手順書.md を参照。
+
+x-logging: &logging
+  driver: json-file
+  options: { max-size: "10m", max-file: "3" }
+
+services:
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - /srv/artleave/caddy/data:/data
+      - /srv/artleave/caddy/config:/config
+    depends_on:
+      - app
+    logging: *logging
+
+  # DB のテーブルを最新の状態にする（起動のたびに実行され、終わると止まる）
+  migrate:
+    build:
+      context: .
+      target: build
+    command: ["pnpm", "prisma", "migrate", "deploy"]
+    env_file: .env
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+    logging: *logging
+
+  app:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      UPLOAD_DIR: /data/uploads
+    volumes:
+      - /srv/artleave/uploads:/data/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    logging: *logging
+
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: artleave
+      POSTGRES_USER: artleave
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - /srv/artleave/pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U artleave -d artleave"]
+      interval: 10s
+      retries: 5
+    logging: *logging
+
+  # グローバルIPが変わったら Cloudflare の DNS を書き換える
+  ddns:
+    image: favonia/cloudflare-ddns:latest
+    restart: unless-stopped
+    environment:
+      CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN}
+      DOMAINS: ${DOMAIN}
+      PROXIED: "false"
+    logging: *logging

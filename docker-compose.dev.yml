@@ -1,0 +1,20 @@
+# 開発用：DB（PostgreSQL）だけを起動する。アプリは pnpm dev で動かす。
+# 起動: docker compose -f docker-compose.dev.yml up -d
+services:
+  db:
+    image: postgres:16
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: artleave
+      POSTGRES_USER: artleave
+      POSTGRES_PASSWORD: artleave
+    volumes:
+      - artleave-dev-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U artleave -d artleave"]
+      interval: 5s
+      retries: 10
+
+volumes:
+  artleave-dev-db:

@@ -1,0 +1,353 @@
+// Artリーブ データベース定義
+// テーブル設計書（docs/設計書/04_テーブル設計書.md）と対応している。
+// CHECK制約・pg_trgm・ポーズの初期データは Prisma で表現できないため、
+// prisma/migrations の SQL に直接書いている。
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// T01 ユーザー
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  email        String   @unique @db.VarChar(255)
+  passwordHash String   @map("password_hash") @db.VarChar(255)
+  displayName  String   @map("display_name") @db.VarChar(50)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  settings          UserSetting?
+  resetTokens       PasswordResetToken[]
+  characters        Character[]
+  tags              Tag[]
+  terms             Term[]
+  episodes          Episode[]
+  relationships     Relationship[]
+  histories         ChangeHistory[]
+  publicSetting     PublicSetting?
+  consistencyChecks ConsistencyCheck[]
+
+  @@map("users")
+}
+
+// T02 ユーザー設定
+model UserSetting {
+  userId             String     @id @map("user_id") @db.Uuid
+  theme              String     @default("dark") @db.VarChar(20)
+  sidebarCharacterId String?    @map("sidebar_character_id") @db.Uuid
+  aiCheckEnabled     Boolean    @default(false) @map("ai_check_enabled")
+  aiCheckConsentedAt DateTime?  @map("ai_check_consented_at") @db.Timestamptz
+  updatedAt          DateTime   @updatedAt @map("updated_at") @db.Timestamptz
+  user               User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sidebarCharacter   Character? @relation("SidebarCharacter", fields: [sidebarCharacterId], references: [id], onDelete: SetNull)
+
+  @@map("user_settings")
+}
+
+// T03 パスワード再設定トークン
+model PasswordResetToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash") @db.VarChar(64)
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz
+  usedAt    DateTime? @map("used_at") @db.Timestamptz
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+// T04 キャラクター
+model Character {
+  id                 String   @id @default(uuid()) @db.Uuid
+  userId             String   @map("user_id") @db.Uuid
+  name               String   @db.VarChar(100)
+  nameKana           String?  @map("name_kana") @db.VarChar(100)
+  personality        String?
+  age                String?  @db.VarChar(50)
+  species            String?  @db.VarChar(100)
+  faction            String?  @db.VarChar(100)
+  profile            String?
+  mainIllustrationId String?  @unique @map("main_illustration_id") @db.Uuid
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  user             User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mainIllustration Illustration?             @relation("MainIllustration", fields: [mainIllustrationId], references: [id], onDelete: SetNull)
+  illustrations    Illustration[]            @relation("CharacterIllustrations")
+  tags             CharacterTag[]
+  terms            CharacterTerm[]
+  episodes         EpisodeCharacter[]
+  relationsFrom    Relationship[]            @relation("RelationFrom")
+  relationsTo      Relationship[]            @relation("RelationTo")
+  nodePosition     RelationshipNodePosition?
+  paletteColors    PaletteColor[]
+  mannequin        Mannequin?
+  sidebarOf        UserSetting[]             @relation("SidebarCharacter")
+
+  @@index([userId, updatedAt(sort: Desc)])
+  @@index([userId, species])
+  @@index([userId, faction])
+  // キーワードの部分一致検索（F-04）。pg_trgm 拡張はマイグレーションSQLで有効化している
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "characters_name_trgm_idx")
+  @@index([profile(ops: raw("gin_trgm_ops"))], type: Gin, map: "characters_profile_trgm_idx")
+  @@map("characters")
+}
+
+// T05 タグ
+model Tag {
+  id         String         @id @default(uuid()) @db.Uuid
+  userId     String         @map("user_id") @db.Uuid
+  name       String         @db.VarChar(50)
+  category   String?        @db.VarChar(50)
+  createdAt  DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime       @updatedAt @map("updated_at") @db.Timestamptz
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  characters CharacterTag[]
+
+  @@unique([userId, name])
+  @@map("tags")
+}
+
+// T06 キャラクタータグ関連
+model CharacterTag {
+  characterId String    @map("character_id") @db.Uuid
+  tagId       String    @map("tag_id") @db.Uuid
+  character   Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  tag         Tag       @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([characterId, tagId])
+  @@index([tagId])
+  @@map("character_tags")
+}
+
+// T07 用語（自己参照で階層化）
+model Term {
+  id          String          @id @default(uuid()) @db.Uuid
+  userId      String          @map("user_id") @db.Uuid
+  parentId    String?         @map("parent_id") @db.Uuid
+  name        String          @db.VarChar(100)
+  description String?
+  sortOrder   Int             @default(0) @map("sort_order")
+  createdAt   DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime        @updatedAt @map("updated_at") @db.Timestamptz
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent      Term?           @relation("TermTree", fields: [parentId], references: [id], onDelete: Restrict)
+  children    Term[]          @relation("TermTree")
+  characters  CharacterTerm[]
+  episodes    EpisodeTerm[]
+
+  @@index([userId, parentId, sortOrder])
+  @@map("terms")
+}
+
+// T08 キャラクター用語関連
+model CharacterTerm {
+  characterId String    @map("character_id") @db.Uuid
+  termId      String    @map("term_id") @db.Uuid
+  character   Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  term        Term      @relation(fields: [termId], references: [id], onDelete: Cascade)
+
+  @@id([characterId, termId])
+  @@index([termId])
+  @@map("character_terms")
+}
+
+// T09 エピソード
+model Episode {
+  id             String             @id @default(uuid()) @db.Uuid
+  userId         String             @map("user_id") @db.Uuid
+  title          String             @db.VarChar(200)
+  body           String?
+  storyTimeLabel String?            @map("story_time_label") @db.VarChar(100)
+  storyOrder     Int?               @map("story_order")
+  createdAt      DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime           @updatedAt @map("updated_at") @db.Timestamptz
+  user           User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  characters     EpisodeCharacter[]
+  terms          EpisodeTerm[]
+
+  @@index([userId, storyOrder])
+  @@map("episodes")
+}
+
+// T10 エピソードキャラクター関連
+model EpisodeCharacter {
+  episodeId   String    @map("episode_id") @db.Uuid
+  characterId String    @map("character_id") @db.Uuid
+  episode     Episode   @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+  character   Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+
+  @@id([episodeId, characterId])
+  @@index([characterId])
+  @@map("episode_characters")
+}
+
+// T11 エピソード用語関連
+model EpisodeTerm {
+  episodeId String  @map("episode_id") @db.Uuid
+  termId    String  @map("term_id") @db.Uuid
+  episode   Episode @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+  term      Term    @relation(fields: [termId], references: [id], onDelete: Cascade)
+
+  @@id([episodeId, termId])
+  @@index([termId])
+  @@map("episode_terms")
+}
+
+// T12 相関関係
+model Relationship {
+  id              String    @id @default(uuid()) @db.Uuid
+  userId          String    @map("user_id") @db.Uuid
+  fromCharacterId String    @map("from_character_id") @db.Uuid
+  toCharacterId   String    @map("to_character_id") @db.Uuid
+  relationType    String    @default("other") @map("relation_type") @db.VarChar(20)
+  label           String    @db.VarChar(50)
+  isBidirectional Boolean   @default(false) @map("is_bidirectional")
+  note            String?
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fromCharacter   Character @relation("RelationFrom", fields: [fromCharacterId], references: [id], onDelete: Cascade)
+  toCharacter     Character @relation("RelationTo", fields: [toCharacterId], references: [id], onDelete: Cascade)
+
+  @@unique([fromCharacterId, toCharacterId, label])
+  @@index([userId])
+  @@index([toCharacterId])
+  @@map("relationships")
+}
+
+// T13 相関図ノード位置
+model RelationshipNodePosition {
+  characterId String    @id @map("character_id") @db.Uuid
+  posX        Float     @map("pos_x")
+  posY        Float     @map("pos_y")
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  character   Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+
+  @@map("relationship_node_positions")
+}
+
+// T14 イラスト
+model Illustration {
+  id           String     @id @default(uuid()) @db.Uuid
+  characterId  String     @map("character_id") @db.Uuid
+  kindLabel    String     @map("kind_label") @db.VarChar(50)
+  caption      String?    @db.VarChar(200)
+  originalPath String     @map("original_path") @db.VarChar(500)
+  displayPath  String     @map("display_path") @db.VarChar(500)
+  thumbPath    String     @map("thumb_path") @db.VarChar(500)
+  mimeType     String     @map("mime_type") @db.VarChar(50)
+  width        Int
+  height       Int
+  fileSize     Int        @map("file_size")
+  sortOrder    Int        @default(0) @map("sort_order")
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime   @updatedAt @map("updated_at") @db.Timestamptz
+  character    Character  @relation("CharacterIllustrations", fields: [characterId], references: [id], onDelete: Cascade)
+  mainOf       Character? @relation("MainIllustration")
+
+  @@index([characterId, sortOrder])
+  @@map("illustrations")
+}
+
+// T15 カラーパレット色
+model PaletteColor {
+  id          String    @id @default(uuid()) @db.Uuid
+  characterId String    @map("character_id") @db.Uuid
+  name        String?   @db.VarChar(50)
+  hex         String    @db.Char(7)
+  usage       String    @default("other") @db.VarChar(20)
+  sortOrder   Int       @default(0) @map("sort_order")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  character   Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+
+  @@index([characterId, sortOrder])
+  @@map("palette_colors")
+}
+
+// T16 ポーズマスタ（初期データはマイグレーションSQLで投入）
+model Pose {
+  id          String      @id @default(uuid()) @db.Uuid
+  code        String      @unique @db.VarChar(30)
+  name        String      @db.VarChar(50)
+  svgTemplate String      @map("svg_template")
+  sortOrder   Int         @map("sort_order")
+  mannequins  Mannequin[]
+
+  @@map("poses")
+}
+
+// T17 マネキン（キャラクターと1対1）
+model Mannequin {
+  id          String    @id @default(uuid()) @db.Uuid
+  characterId String    @unique @map("character_id") @db.Uuid
+  heightCm    Int       @default(160) @map("height_cm") @db.SmallInt
+  headRatio   Decimal   @default(7.0) @map("head_ratio") @db.Decimal(3, 1)
+  bodyType    String    @default("standard") @map("body_type") @db.VarChar(20)
+  skinColor   String    @default("#F2D3BE") @map("skin_color") @db.Char(7)
+  poseId      String    @map("pose_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  character   Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  pose        Pose      @relation(fields: [poseId], references: [id], onDelete: Restrict)
+
+  @@index([poseId])
+  @@map("mannequins")
+}
+
+// T18 変更履歴（対象削除後も残すため target_id は外部キーにしない）
+model ChangeHistory {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  targetType  String   @map("target_type") @db.VarChar(30)
+  targetId    String   @map("target_id") @db.Uuid
+  targetLabel String   @map("target_label") @db.VarChar(200)
+  action      String   @db.VarChar(10)
+  beforeJson  Json?    @map("before_json")
+  afterJson   Json?    @map("after_json")
+  changedAt   DateTime @default(now()) @map("changed_at") @db.Timestamptz
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, targetType, targetId, changedAt(sort: Desc)])
+  @@index([userId, changedAt(sort: Desc)])
+  @@map("change_histories")
+}
+
+// T19 公開設定（将来・F-15）
+model PublicSetting {
+  userId       String    @id @map("user_id") @db.Uuid
+  slug         String    @unique @db.VarChar(50)
+  visibility   String    @default("private") @db.VarChar(10)
+  passwordHash String?   @map("password_hash") @db.VarChar(255)
+  publishedAt  DateTime? @map("published_at") @db.Timestamptz
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("public_settings")
+}
+
+// T20 矛盾チェック結果（将来・F-16）
+model ConsistencyCheck {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  targetType  String    @map("target_type") @db.VarChar(30)
+  targetId    String    @map("target_id") @db.Uuid
+  useAi       Boolean   @default(false) @map("use_ai")
+  status      String    @default("pending") @db.VarChar(10)
+  resultJson  Json?     @map("result_json")
+  aiError     String?   @map("ai_error") @db.VarChar(200)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  completedAt DateTime? @map("completed_at") @db.Timestamptz
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, targetType, targetId])
+  @@map("consistency_checks")
+}

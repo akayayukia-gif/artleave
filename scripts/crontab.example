@@ -1,0 +1,7 @@
+# バッチの実行予定（10_バッチ処理設計書 2章）。Pi で crontab -e を開いて貼り付ける
+0  3 * * *  /opt/artleave/scripts/run-job.sh B-01 /opt/artleave/scripts/backup-db.sh
+30 3 * * *  /opt/artleave/scripts/run-job.sh B-02 /opt/artleave/scripts/sync-offsite.sh
+30 4 * * *  /opt/artleave/scripts/run-job.sh B-03 /opt/artleave/scripts/purge-tokens.sh
+# B-04 孤立した画像ファイルの掃除は、画像管理機能（F-09）の実装と合わせて追加する
+0  * * * *  /opt/artleave/scripts/run-job.sh B-05 /opt/artleave/scripts/check-disk.sh
+0  5 * * *  /opt/artleave/scripts/run-job.sh B-06 /opt/artleave/scripts/rotate-logs.sh

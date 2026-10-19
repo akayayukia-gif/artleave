@@ -1,0 +1,38 @@
+# 自動デプロイ：main の CI が成功したら、Tailscale 経由で Raspberry Pi に入り scripts/deploy.sh を実行する。
+# 必要な Secrets（13_環境構築・デプロイ手順書 第3部）:
+#   TS_OAUTH_CLIENT_ID / TS_OAUTH_SECRET / DEPLOY_SSH_KEY / DEPLOY_KNOWN_HOSTS / DEPLOY_HOST
+# Pi の準備ができるまでは、リポジトリの Variables に DEPLOY_ENABLED=true を設定しない限り動かない。
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency: deploy
+
+jobs:
+  deploy:
+    if: >-
+      vars.DEPLOY_ENABLED == 'true' &&
+      (github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Tailscale に一時参加
+        uses: tailscale/github-action@v3
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+
+      - name: SSH鍵の準備
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          echo "${{ secrets.DEPLOY_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+
+      - name: Pi でデプロイスクリプトを実行
+        run: ssh artleave@${{ secrets.DEPLOY_HOST }} "/opt/artleave/scripts/deploy.sh"

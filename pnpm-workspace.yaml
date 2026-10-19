@@ -1,0 +1,8 @@
+# インストール時にビルド処理を実行してよいパッケージ（pnpm 10 以降は明示が必要）
+onlyBuiltDependencies:
+  - "@prisma/engines"
+  - prisma
+  - "@node-rs/argon2"
+  - sharp
+ignoredBuiltDependencies:
+  - unrs-resolver

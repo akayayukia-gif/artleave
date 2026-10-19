@@ -1,0 +1,45 @@
+# CI：push・プルリクエストのたびに、静的解析・型チェック・テスト・ビルドを行う
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: artleave_test
+          POSTGRES_USER: artleave
+          POSTGRES_PASSWORD: artleave
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U artleave"
+          --health-interval 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://artleave:artleave@localhost:5432/artleave_test
+      AUTH_SECRET: ci-only-secret-not-used-in-production-0123456789
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: 静的解析（Biome）
+        run: pnpm check
+      - name: 型チェック
+        run: pnpm typecheck
+      - name: マイグレーション
+        run: pnpm prisma migrate deploy
+      - name: マイグレーションと schema.prisma のずれがないか確認
+        run: pnpm prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code
+      - name: テスト
+        run: pnpm test:coverage
+      - name: ビルド
+        run: pnpm build
