@@ -1,0 +1,7 @@
+# Windows で clone しても、シェルスクリプトや設定ファイルの改行を LF のまま保つ
+* text=auto eol=lf
+*.sh text eol=lf
+*.png binary
+*.pdf binary
+*.xlsx binary
+*.ico binary
