@@ -46,10 +46,10 @@ export function SignupForm() {
         required
         errors={state.fieldErrors?.passwordConfirm}
       />
-      <SubmitButton pending={pending}>登録する</SubmitButton>
-      <p className="text-center text-sm text-muted">
+      <SubmitButton pending={pending}>図鑑をつくる　→</SubmitButton>
+      <p className="text-center text-sm text-ink-muted">
         登録済みの方は
-        <Link href="/login" className="ml-1 text-accent hover:underline">
+        <Link href="/login" className="ml-1 font-medium text-ok hover:underline">
           ログイン
         </Link>
       </p>

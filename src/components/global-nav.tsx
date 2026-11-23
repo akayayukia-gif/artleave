@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-// グローバルナビ（画面設計書 2. 共通レイアウト）
+// グローバルナビ（画面設計書 2. 共通レイアウト）。ヘッダーの中に横並びで置き、選んでいる項目に緑の下線を引く。
 export const NAV_ITEMS = [
   { href: "/", label: "図鑑" },
   { href: "/terms", label: "世界観" },
@@ -14,19 +14,31 @@ export const NAV_ITEMS = [
   { href: "/settings", label: "設定" },
 ] as const;
 
-export function GlobalNav() {
-  const pathname = usePathname();
+/** static は事前描画用（どの項目も選択していない状態で表示する） */
+export function GlobalNav({ static: isStatic = false }: { static?: boolean }) {
+  return isStatic ? <NavList pathname={null} /> : <CurrentNav />;
+}
+
+function CurrentNav() {
+  return <NavList pathname={usePathname()} />;
+}
+
+function NavList({ pathname }: { pathname: string | null }) {
   return (
-    <nav aria-label="メインメニュー">
-      <ul className="flex gap-1 overflow-x-auto md:flex-col">
+    <nav aria-label="メインメニュー" className="min-w-0 flex-1">
+      <ul className="flex gap-6 overflow-x-auto [scrollbar-width:none]">
         {NAV_ITEMS.map((item) => {
-          const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+          const active =
+            pathname !== null &&
+            (item.href === "/"
+              ? pathname === "/" || pathname.startsWith("/characters")
+              : pathname.startsWith(item.href));
           return (
             <li key={item.href}>
               <Link
                 href={item.href}
                 aria-current={active ? "page" : undefined}
-                className="block whitespace-nowrap rounded-md px-3 py-2 text-sm text-muted transition hover:bg-surface-raised hover:text-text aria-[current=page]:bg-surface-raised aria-[current=page]:text-accent"
+                className="block border-b-2 border-transparent py-1 text-sm whitespace-nowrap text-muted transition hover:text-text aria-[current=page]:border-green aria-[current=page]:font-bold aria-[current=page]:text-text"
               >
                 {item.label}
               </Link>
