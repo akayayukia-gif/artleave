@@ -1,0 +1,773 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Artリーブ デモ</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Noto+Serif+JP:wght@400;600;700&display=swap">
+<style>
+/* 案A「フィルム写真」：緑がかった暗い机の上に、紙・写真・糸で図鑑を綴じる */
+:root{
+  --desk:#253a33; --desk-deep:#15241f; --glow:#4d7466;
+  --paper:#ece6d8; --paper-2:#e2dac8; --ink:#14201c; --ink-2:#6b6a5f;
+  --text:#f3efe6; --muted:#cdc8b8; --gold:#d9c38f; --clip:#b9a26a;
+  --green:#4fd18b; --ok:#1f7a4a; --danger:#c8483b;
+  --ab-red:#ff3b3b; --ab-cyan:#28e0d0;
+  --serif:"Noto Serif JP","Hiragino Mincho ProN","Yu Mincho",serif;
+  --sans:"Noto Sans JP","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+#app{overflow-x:clip}
+html,body{min-height:100%}
+body{
+  margin:0; font-family:var(--sans); color:var(--text); background:var(--desk-deep);
+  background-image:radial-gradient(120% 90% at 50% 35%, var(--glow) 0%, var(--desk) 45%, var(--desk-deep) 100%);
+  background-attachment:fixed; line-height:1.6; -webkit-font-smoothing:antialiased;
+}
+body::before{ /* フィルムの粒 */
+  content:""; position:fixed; inset:0; pointer-events:none; z-index:50; opacity:.11; mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+body::after{ /* 周辺減光 */
+  content:""; position:fixed; inset:0; pointer-events:none; z-index:49;
+  background:radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,.32) 100%);
+}
+button,input,textarea,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--green); outline-offset:2px}
+.wrap{max-width:1280px; margin:0 auto; padding-left:max(16px, env(safe-area-inset-left,0px)); padding-right:max(16px, env(safe-area-inset-right,0px))}
+
+/* ===== 見出し（色ズレの明朝） ===== */
+.ab{font-family:var(--serif); font-weight:700; letter-spacing:.02em; line-height:1.15; color:var(--text);
+  text-shadow:-3px 0 rgba(255,59,59,.42), 3px 1px rgba(40,224,208,.42); text-wrap:balance}
+.ab.on-paper{color:var(--ink); text-shadow:-2px 0 rgba(255,59,59,.3), 2px 1px rgba(40,224,208,.3)}
+
+/* ===== 共通部品 ===== */
+.btn{display:inline-flex; align-items:center; justify-content:center; gap:.4em; border:0; padding:.7em 1.4em; font-weight:700; font-size:.9rem; letter-spacing:.06em; background:var(--paper); color:var(--ink); transition:transform .15s, filter .15s}
+.btn:hover{transform:translateY(-1px); filter:brightness(1.04)}
+.btn.ink{background:var(--ink); color:var(--paper)}
+.btn.ghost{background:transparent; color:var(--text); border:1px solid rgba(236,230,216,.55); font-weight:500}
+.btn.ghost-ink{background:transparent; color:var(--ink); border:1px solid rgba(20,32,28,.4); font-weight:500}
+.btn.danger{background:var(--danger); color:#fff}
+.btn:disabled{opacity:.5; cursor:not-allowed; transform:none}
+.paper{background:var(--paper); color:var(--ink); box-shadow:0 20px 40px rgba(0,0,0,.45)}
+.tape{position:absolute; width:110px; height:28px; background:rgba(217,195,143,.72); box-shadow:0 1px 2px rgba(0,0,0,.15)}
+.chip{display:inline-flex; align-items:center; gap:.35em; padding:.15em .65em; font-size:.78rem; font-weight:500; background:var(--paper); color:var(--ink); border:1px solid rgba(20,32,28,.18)}
+.chip.on{background:var(--ink); color:var(--paper)}
+.sample{font-size:.66rem; letter-spacing:.12em; color:var(--ink-2); border:1px solid rgba(20,32,28,.3); padding:0 .4em}
+.field{display:flex; flex-direction:column; gap:.25rem; min-width:0}
+.field label{font-size:.78rem; font-weight:500; color:var(--ink)}
+.field input,.field textarea,.field select{border:0; border-bottom:1.5px solid var(--ink); background:transparent; padding:.45rem 0; font-size:1rem; color:var(--ink); border-radius:0; width:100%}
+.field textarea{border:1px solid rgba(20,32,28,.3); padding:.6rem; line-height:1.8; resize:vertical; min-height:5.5em; font-family:var(--serif)}
+.field input:focus,.field textarea:focus{outline:none; border-color:var(--ok); box-shadow:0 1.5px 0 var(--ok)}
+.hint{font-size:.74rem; color:var(--ink-2)}
+.err{font-size:.8rem; color:var(--danger); font-weight:500}
+.sr{position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0)}
+
+/* ===== ヘッダー ===== */
+.top{position:sticky; top:env(safe-area-inset-top,0px); z-index:30; backdrop-filter:blur(6px); background:rgba(21,36,31,.72); border-bottom:1px solid rgba(217,195,143,.18)}
+.top .wrap{display:flex; align-items:center; gap:1.5rem; height:64px}
+.logo{font-family:var(--serif); font-weight:700; font-size:1.4rem; letter-spacing:.04em; color:var(--text); text-decoration:none; white-space:nowrap}
+.nav{display:flex; gap:1.4rem; flex:1; min-width:0; overflow-x:auto; scrollbar-width:none}
+.nav a{color:var(--muted); text-decoration:none; font-size:.9rem; padding:.3rem 0; border-bottom:2px solid transparent; white-space:nowrap}
+.nav a.on{color:var(--text); font-weight:700; border-color:var(--green)}
+.nav a.soon{opacity:.45; pointer-events:none}
+.user{display:flex; align-items:center; gap:.8rem; font-size:.82rem; color:var(--muted); white-space:nowrap}
+.user button{background:none; border:0; color:var(--muted); text-decoration:underline; text-underline-offset:3px; padding:0}
+body::before{top:0}
+
+/* ===== ログイン ===== */
+#login{position:relative; min-height:100vh; min-height:100dvh; overflow:hidden; display:grid; place-items:center; padding-block:40px}
+.scatter{position:absolute; inset:0; pointer-events:none}
+.pol{position:absolute; background:var(--paper); padding:12px 12px 48px; box-shadow:0 18px 40px rgba(0,0,0,.55)}
+.pol img,.pol .ph{display:block; width:100%; height:100%; object-fit:cover; filter:saturate(.72) contrast(1.08) hue-rotate(-8deg) sepia(.12)}
+.pol .ph{background:linear-gradient(70deg,#0e2a26,#2f7a62 60%,#d8d070)}
+.pol.blur{filter:blur(5px); opacity:.75}
+.strings{position:absolute; inset:0; width:100%; height:100%; pointer-events:none}
+.login-inner{position:relative; z-index:2; width:100%; display:grid; grid-template-columns:1.25fr .9fr; gap:clamp(24px,5vw,80px); align-items:center}
+.login-head{position:relative; z-index:2}
+.login-head h1{font-size:clamp(2.2rem,5.6vw,5.2rem); margin:0}
+.login-head h1 span.ln{display:block; white-space:nowrap}
+.login-head h1 .grn{background:linear-gradient(#a6f0b4,#1f9b52); -webkit-background-clip:text; background-clip:text; color:transparent}
+.login-head p{margin:.8rem 0 0; font-size:.75rem; letter-spacing:.4em; color:var(--gold)}
+.login-card{position:relative; padding:34px 32px 28px; transform:rotate(-1.5deg); display:flex; flex-direction:column; gap:18px; max-width:400px; width:100%; justify-self:end}
+.login-card h2{font-family:var(--serif); margin:0; font-size:1.6rem}
+.login-card .no{font-size:.74rem; color:var(--ink-2); letter-spacing:.1em; margin-top:-10px}
+.login-card .tape{top:-14px; left:50%; transform:translateX(-50%) rotate(4deg)}
+.demo-note{font-size:.74rem; color:var(--ink-2); border-top:1px dashed rgba(20,32,28,.3); padding-top:10px}
+
+/* ===== 図鑑 ===== */
+.page-head{display:flex; flex-wrap:wrap; align-items:flex-end; gap:16px 32px; padding-block:36px 8px}
+.page-head h1{font-size:clamp(2.6rem,6vw,4.6rem); margin:0}
+.page-head .sub{color:var(--muted); font-size:.85rem; letter-spacing:.06em}
+.page-head .grow{flex:1}
+.tools{display:flex; flex-wrap:wrap; gap:10px 18px; align-items:center; padding-block:14px 8px}
+.search{display:flex; align-items:center; border-bottom:1px solid rgba(217,195,143,.5); min-width:min(320px,100%)}
+.search input{background:transparent; border:0; padding:.5rem .2rem; width:100%; color:var(--text)}
+.search input::placeholder{color:rgba(205,200,184,.7)}
+.search input:focus{outline:none}
+.tagbar{display:flex; flex-wrap:wrap; gap:6px; flex:1; min-width:0}
+.tagbar button{background:transparent; border:1px solid rgba(217,195,143,.45); color:var(--text); font-size:.78rem; padding:.2em .7em}
+.tagbar button.on{background:var(--paper); color:var(--ink); border-color:var(--paper); font-weight:700}
+.sort select{background:transparent; border:1px solid rgba(217,195,143,.45); padding:.3em .5em; font-size:.8rem}
+.sort select option{color:#000}
+.line{display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:56px 40px; padding-block:44px 80px}
+.card{position:relative; text-decoration:none; color:var(--ink); display:block}
+.card::before{ /* 物干しの糸（隣と繋がる） */
+  content:""; position:absolute; top:12px; left:-24px; right:-24px; height:2px; background:linear-gradient(var(--gold),var(--gold)); opacity:.7; z-index:0}
+.card .p{position:relative; z-index:1; background:var(--paper); padding:10px 10px 0; box-shadow:0 16px 30px rgba(0,0,0,.5); transform:rotate(var(--r,0deg)); transition:transform .25s ease, box-shadow .25s}
+.card:hover .p,.card:focus-visible .p{transform:rotate(0deg) translateY(-6px); box-shadow:0 26px 40px rgba(0,0,0,.55)}
+.card .clip{position:absolute; z-index:2; top:-6px; left:50%; width:16px; height:38px; margin-left:-8px; background:var(--clip); border-radius:3px; box-shadow:0 2px 3px rgba(0,0,0,.4); transform:rotate(var(--r,0deg))}
+.portrait{position:relative; aspect-ratio:4/5; overflow:hidden; background:#000}
+.portrait img{width:100%; height:100%; object-fit:cover; display:block}
+.portrait svg{width:100%; height:100%; display:block}
+.card .cap{padding:10px 4px 14px; display:flex; flex-direction:column; gap:2px}
+.card .nm{font-family:var(--serif); font-weight:700; font-size:1.2rem; display:flex; justify-content:space-between; align-items:baseline; gap:8px}
+.card .no{font-size:.65rem; letter-spacing:.14em; color:var(--ink-2); font-family:var(--sans); font-weight:500}
+.card .meta{font-size:.74rem; color:var(--ink-2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.card.add .p{background:transparent; border:1.5px dashed rgba(217,195,143,.6); box-shadow:none; min-height:100%; display:grid; place-items:center; color:var(--gold); aspect-ratio:4/5.9; font-weight:500}
+.empty{grid-column:1/-1; text-align:center; color:var(--muted); padding:40px 0}
+
+/* ===== 本（キャラ詳細） ===== */
+#detail .bar{display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:12px; padding-block:22px 10px}
+.back{color:var(--muted); text-decoration:none; font-size:.85rem}
+.stage{position:relative; perspective:2600px; padding-block:18px 10px}
+.book{position:relative; display:grid; grid-template-columns:1fr 1fr; margin:0 auto; max-width:1180px; margin-right:56px}
+.book::before{ /* ページの厚み */
+  content:""; position:absolute; inset:4px -7px -7px -7px; background:repeating-linear-gradient(#d8d0bc 0 2px,#e4dcc8 2px 4px); z-index:-1; border-radius:3px; box-shadow:0 32px 60px rgba(0,0,0,.55)}
+.pg{position:relative; background:var(--paper); color:var(--ink); min-height:660px; padding:44px 48px 56px; overflow:hidden}
+.pg.l{background:linear-gradient(to right, var(--paper) 80%, #d9d1bf 100%)}
+.pg.r{background:linear-gradient(to left, var(--paper) 80%, #d9d1bf 100%), repeating-linear-gradient(transparent 0 33px, rgba(20,32,28,.05) 33px 34px)}
+.pg.r{background-blend-mode:multiply}
+.pg .folio{position:absolute; bottom:18px; left:0; right:0; text-align:center; font-family:var(--serif); font-size:.78rem; letter-spacing:.3em; color:var(--ink-2)}
+.leaf{position:absolute; top:0; bottom:0; width:50%; transform-style:preserve-3d; z-index:5; will-change:transform}
+.leaf.fwd{left:50%; transform-origin:left center}
+.leaf.bwd{left:0; transform-origin:right center}
+.leaf .face{position:absolute; inset:0; backface-visibility:hidden; -webkit-backface-visibility:hidden; overflow:hidden}
+.leaf .face.back{transform:rotateY(180deg)}
+.leaf .face .pg{height:100%; min-height:0}
+.leaf .shade{position:absolute; inset:0; pointer-events:none; background:linear-gradient(to right, rgba(0,0,0,.28), transparent 40%); opacity:0}
+.leaf.blank .face{background:var(--paper)}
+.leaf.blank .face.front{background:linear-gradient(to left,var(--paper) 85%,#d6cdb9)}
+.leaf.blank .face.back{background:linear-gradient(to right,var(--paper) 85%,#d6cdb9)}
+.cover{background:linear-gradient(135deg,#1d3a31,#0f211b); color:var(--gold); display:grid; place-items:center; text-align:center; box-shadow:inset 0 0 0 10px #16302a, inset 0 0 0 12px rgba(217,195,143,.5)}
+.cover .t{font-family:var(--serif); font-weight:700; font-size:2.2rem; letter-spacing:.08em}
+.cover .s{font-size:.72rem; letter-spacing:.5em; margin-top:.6rem}
+.inside{background:repeating-linear-gradient(45deg,#c9bfa6 0 6px,#d4cab2 6px 12px)}
+.ribbon{position:absolute; top:-10px; left:calc(50% + 40px); width:30px; height:220px; z-index:6; background:var(--ok); clip-path:polygon(0 0,100% 0,100% 100%,50% 91%,0 100%); box-shadow:2px 4px 6px rgba(0,0,0,.35)}
+.index{position:absolute; right:-44px; top:40px; display:flex; flex-direction:column; gap:8px; z-index:4}
+.index button{width:44px; height:112px; border:0; border-radius:0 6px 6px 0; writing-mode:vertical-rl; font-family:var(--serif); font-weight:600; font-size:.85rem; letter-spacing:.2em; color:var(--ink); box-shadow:2px 2px 4px rgba(0,0,0,.3); transform:translateX(-6px); transition:transform .2s}
+.index button.on{transform:translateX(0); font-weight:700}
+.index button:nth-child(1){background:#ece6d8} .index button:nth-child(2){background:#c9d8c9} .index button:nth-child(3){background:#d8cbb0} .index button:nth-child(4){background:#c8d2dc}
+.pager{display:flex; justify-content:space-between; gap:12px; max-width:1180px; margin:16px 56px 60px auto; margin-left:auto}
+.pager button{background:none; border:0; color:var(--muted); font-family:var(--serif); font-size:.92rem; padding:.4rem 0}
+.pager button:hover{color:var(--text)}
+.pager button:disabled{opacity:.3; cursor:default}
+
+/* 左ページ */
+.l-main{position:relative; width:min(78%,360px); margin:18px auto 0; background:#f6f1e6; padding:14px 14px 54px; box-shadow:0 14px 30px rgba(0,0,0,.35); transform:rotate(-3deg)}
+.l-main .tape{top:-12px; left:18%; transform:rotate(8deg)}
+.l-main .tape.b{left:auto; right:12%; transform:rotate(-10deg)}
+.l-main .cap{position:absolute; left:18px; right:18px; bottom:14px; font-family:var(--serif); font-size:.95rem; color:var(--ink); display:flex; justify-content:space-between; gap:8px}
+.l-main .cap small{font-family:var(--sans); color:var(--ink-2); font-size:.7rem; align-self:center}
+.l-quote{margin:40px auto 0; max-width:30ch; font-family:var(--serif); font-size:1rem; line-height:2; color:var(--ink); text-align:center}
+.l-quote::before,.l-quote::after{content:"──"; color:var(--ink-2); margin:0 .5em}
+/* 右ページ */
+.file-no{font-size:.7rem; letter-spacing:.3em; color:var(--ink-2); display:flex; justify-content:space-between; gap:8px}
+.r-name{display:flex; flex-wrap:wrap; align-items:baseline; gap:6px 18px; margin:10px 0 2px}
+.r-name h2{font-size:clamp(2.2rem,4vw,3.4rem); margin:0}
+.r-name .kana{font-family:var(--serif); color:#a68c4f; font-size:1.2rem; letter-spacing:.12em}
+.r-meta{font-size:.84rem; color:var(--ink-2); letter-spacing:.06em}
+.r-tags{display:flex; flex-wrap:wrap; gap:6px; margin:12px 0 18px}
+.r-tags .chip{transform:rotate(var(--r,0deg))}
+.sec{border-top:1px solid rgba(20,32,28,.22); padding-top:14px; margin-top:16px}
+.sec h3{font-family:var(--serif); font-weight:600; font-size:.95rem; letter-spacing:.24em; margin:0 0 6px}
+.sec p{font-family:var(--serif); margin:0; line-height:2; font-size:.95rem; white-space:pre-wrap}
+.swatches{display:flex; flex-wrap:wrap; gap:14px; padding-top:6px}
+.sw{background:#f6f1e6; padding:7px 7px 9px; border:0; text-align:left; box-shadow:0 4px 8px rgba(0,0,0,.18); transform:rotate(var(--r,0deg)); transition:transform .15s}
+.sw:hover{transform:rotate(0) translateY(-3px)}
+.sw i{display:block; width:62px; height:54px}
+.sw b{display:block; font-family:var(--serif); font-size:.78rem; margin-top:6px; color:var(--ink)}
+.sw code{font-size:.66rem; color:var(--ink-2); font-family:ui-monospace,Menlo,monospace}
+.mq{display:grid; grid-template-columns:auto 1fr; gap:20px; align-items:end}
+.mq svg{width:min(260px,100%); height:auto}
+.mq dl{margin:0; display:grid; grid-template-columns:auto 1fr; gap:6px 16px; font-size:.9rem}
+.mq dt{color:var(--ink-2)} .mq dd{margin:0; font-family:var(--serif); font-weight:700}
+.mq .big{font-size:2rem}
+
+/* ===== 編集 ===== */
+.edit-grid{display:grid; grid-template-columns:320px 1fr; gap:40px; padding-block:24px 80px; align-items:start}
+.edit-left{display:flex; flex-direction:column; gap:20px; position:sticky; top:84px}
+.edit-left .pol-s{background:var(--paper); padding:12px 12px 46px; box-shadow:0 16px 30px rgba(0,0,0,.5); transform:rotate(-2deg); position:relative}
+.edit-left .pol-s .cap{position:absolute; bottom:12px; left:16px; font-family:var(--serif); font-weight:700; color:var(--ink)}
+.drop{border:1.5px dashed rgba(217,195,143,.7); color:var(--gold); padding:16px; text-align:center; font-size:.85rem; display:block; cursor:pointer}
+.drop small{display:block; color:var(--muted); font-size:.72rem; margin-top:2px}
+.drop.over{background:rgba(217,195,143,.12)}
+.sheet{padding:30px clamp(20px,4vw,44px) 34px; display:flex; flex-direction:column; gap:20px; transform:rotate(.4deg)}
+.sheet .head{display:flex; justify-content:space-between; gap:12px; font-size:.7rem; letter-spacing:.3em; color:var(--ink-2)}
+.row{display:grid; gap:24px}
+.row.c3{grid-template-columns:2fr 2fr 1fr} .row.c2{grid-template-columns:1fr 1fr}
+.tags-in{display:flex; flex-wrap:wrap; gap:6px; align-items:center; border-bottom:1.5px solid var(--ink); padding:.35rem 0}
+.tags-in input{border:0; flex:1; min-width:8em; padding:.2rem 0; background:transparent}
+.tags-in input:focus{outline:none; box-shadow:none}
+.tags-in .chip button{border:0; background:none; padding:0 0 0 2px; color:inherit}
+.pal-edit{display:flex; flex-wrap:wrap; gap:12px}
+.pal-edit .pe{display:flex; flex-direction:column; gap:4px; width:84px}
+.pal-edit input[type=color]{width:84px; height:48px; border:1px solid rgba(20,32,28,.25); padding:2px; background:#fff}
+.pal-edit input[type=text]{border:0; border-bottom:1px solid rgba(20,32,28,.4); background:transparent; font-size:.8rem; padding:.15rem 0; width:100%}
+.range{display:flex; align-items:center; gap:12px}
+.range input{flex:1; accent-color:var(--ok)}
+.range output{font-family:var(--serif); font-weight:700; min-width:4.5em; text-align:right}
+.seg{display:flex; gap:0; flex-wrap:wrap}
+.seg label{position:relative; border:1px solid rgba(20,32,28,.35); padding:.35em 1em; font-size:.85rem; cursor:pointer; margin-left:-1px}
+.seg input{position:absolute; inset:0; width:100%; height:100%; margin:0; opacity:0; cursor:pointer}
+.seg input:checked+span{font-weight:700}
+.seg label:has(input:checked){background:var(--ink); color:var(--paper)}
+.seg label:has(input:focus-visible){outline:2px solid var(--ok)}
+.actions{display:flex; flex-wrap:wrap; gap:10px; justify-content:space-between; align-items:center; border-top:1px solid rgba(20,32,28,.2); padding-top:18px}
+.confirm{display:flex; flex-wrap:wrap; gap:8px; align-items:center; font-size:.85rem}
+
+/* ===== トースト ===== */
+.toast{position:fixed; left:50%; bottom:calc(24px + env(safe-area-inset-bottom,0px)); transform:translateX(-50%) translateY(20px); background:var(--ink); color:var(--paper); padding:10px 18px; font-size:.85rem; display:flex; gap:8px; align-items:center; opacity:0; transition:.25s; z-index:60; box-shadow:0 8px 20px rgba(0,0,0,.4); pointer-events:none; max-width:calc(100% - 32px)}
+.toast.show{opacity:1; transform:translateX(-50%) translateY(0)}
+.toast i{width:14px; height:14px; display:inline-block; flex:none}
+
+.foot{color:var(--muted); font-size:.75rem; padding-block:20px 40px; display:flex; flex-wrap:wrap; justify-content:space-between; gap:12px; border-top:1px solid rgba(217,195,143,.15)}
+.foot button{background:none; border:0; color:var(--gold); text-decoration:underline; text-underline-offset:3px; padding:0; font-size:.75rem}
+
+/* ===== 狭い画面 ===== */
+@media (max-width:900px){
+  .login-inner{grid-template-columns:1fr}
+  .login-card{justify-self:center}
+  .book{grid-template-columns:1fr; margin-right:0}
+  .book::before{display:none}
+  .pg{min-height:0; padding:28px 22px 48px}
+  .pg.l{padding-bottom:40px}
+  .index{position:static; flex-direction:row; flex-wrap:wrap; gap:6px; margin-bottom:-2px}
+  .index button{writing-mode:horizontal-tb; width:auto; height:auto; padding:.5em 1em; border-radius:6px 6px 0 0; transform:none; letter-spacing:.1em}
+  .ribbon{display:none}
+  .index{order:-1}
+  .pager{margin:16px 0 50px}
+  .edit-grid{grid-template-columns:1fr}
+  .edit-left{position:static; max-width:320px}
+  .row.c3,.row.c2{grid-template-columns:1fr}
+  .mq{grid-template-columns:1fr}
+  .user .who{display:none}
+}
+@media (max-width:560px){
+  .top .wrap{gap:.9rem}
+  .line{grid-template-columns:repeat(2,1fr); gap:44px 18px}
+  .card .meta{font-size:.68rem}
+  .card .nm{font-size:1rem}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{transition:none!important; animation:none!important}
+}
+</style>
+</head>
+<body>
+
+<!-- ログイン -->
+<section id="login" hidden>
+  <div class="scatter" aria-hidden="true">
+    <svg class="strings" viewBox="0 0 1440 900" preserveAspectRatio="none"><g stroke="#d9c38f" fill="none" opacity=".7"><path d="M-20 380 C400 300 900 180 1460 60" stroke-width="2"/><path d="M-20 392 C420 312 900 196 1460 74" stroke-width="1"/><path d="M-20 620 C500 660 900 760 1460 880" stroke-width="2"/><path d="M200 -20 C420 300 600 700 760 920" stroke-width="1.2" opacity=".6"/></g></svg>
+    <div class="pol blur" style="left:-4%;top:58%;width:30vw;height:24vw;transform:rotate(9deg)"><img src="photos/trees.jpg" alt=""></div>
+    <div class="pol blur" style="right:-3%;top:-6%;width:25vw;height:22vw;transform:rotate(-11deg)"><img src="photos/town.jpg" alt=""></div>
+    <div class="pol blur" style="right:2%;top:64%;width:21vw;height:18vw;transform:rotate(6deg)"><img src="photos/beach.jpg" alt=""></div>
+    <div class="pol blur" style="left:8%;top:-8%;width:23vw;height:20vw;transform:rotate(-6deg)"><img src="photos/beach.jpg" alt=""></div>
+    <div class="pol" style="left:23%;top:18%;width:38vw;height:30vw;max-width:560px;max-height:440px;transform:rotate(-4deg)"><img src="photos/railing.jpg" alt=""></div>
+  </div>
+  <div class="wrap login-inner">
+    <div class="login-head">
+      <div class="logo" style="margin-bottom:24px">Artリーブ</div>
+      <h1 class="ab"><span class="ln">創った全てを、</span><span class="ln">　ここに<span class="grn">綴</span>じる。</span></h1>
+      <p>ORIGINAL CHARACTER ARCHIVE</p>
+    </div>
+    <form class="login-card paper" id="loginForm" novalidate>
+      <span class="tape"></span>
+      <h2>ログイン</h2>
+      <div class="no">No. 001 ── あなたの図鑑をひらく</div>
+      <div class="field"><label for="lg-email">メールアドレス</label><input id="lg-email" type="email" autocomplete="username" value="demo@example.com"></div>
+      <div class="field"><label for="lg-pass">パスワード</label><input id="lg-pass" type="password" autocomplete="current-password" value="artleave123"></div>
+      <p class="err" id="lg-err" role="alert" hidden></p>
+      <button class="btn ink" type="submit" style="padding-block:.95em">ひらく　→</button>
+      <div class="demo-note">デモ版です。入力済みのまま「ひらく」でログインできます。データはこのブラウザの中だけに保存されます。</div>
+    </form>
+  </div>
+</section>
+
+<!-- ログイン後 -->
+<div id="app" hidden>
+  <header class="top">
+    <div class="wrap">
+      <a class="logo" href="#zukan">Artリーブ</a>
+      <nav class="nav" aria-label="メイン">
+        <a href="#zukan" id="nav-zukan">図鑑</a>
+        <a href="#new" id="nav-new">キャラを追加</a>
+        <a class="soon" aria-disabled="true">世界観</a>
+        <a class="soon" aria-disabled="true">エピソード</a>
+        <a class="soon" aria-disabled="true">相関図</a>
+      </nav>
+      <div class="user"><span class="who">デモユーザー</span><button type="button" id="logout">ログアウト</button></div>
+    </div>
+  </header>
+
+  <!-- 図鑑 -->
+  <main id="zukan" hidden>
+    <div class="wrap">
+      <div class="page-head">
+        <h1 class="ab">図鑑</h1>
+        <div class="sub grow" id="zk-count"></div>
+        <a class="btn" href="#new">＋ 新しいキャラ</a>
+      </div>
+      <div class="tools">
+        <label class="search"><span class="sr">キャラを探す</span><input id="q" type="search" placeholder="名前・種族・所属・タグで探す"></label>
+        <div class="tagbar" id="tagbar"></div>
+        <label class="sort"><span class="sr">並び替え</span><select id="sort"><option value="upd">更新日順</option><option value="no">番号順</option><option value="name">名前順</option></select></label>
+      </div>
+      <div class="line" id="cards"></div>
+      <div class="foot"><span>灰色の「サンプル」はデモ用の例です。追加・編集した内容はこのブラウザに保存されます。</span><span id="resetBox"><button type="button" id="resetBtn">サンプルの状態に戻す</button></span></div>
+    </div>
+  </main>
+
+  <!-- キャラ詳細（本） -->
+  <main id="detail" hidden>
+    <div class="wrap">
+      <div class="bar">
+        <a class="back" href="#zukan">← 図鑑へ戻る</a>
+        <a class="btn ghost" id="editBtn" href="#">編集する</a>
+      </div>
+      <div class="stage" id="stage">
+        <div class="book" id="book">
+          <div class="pg l" id="pgL"></div>
+          <div class="pg r" id="pgR"></div>
+          <span class="ribbon" aria-hidden="true"></span>
+          <div class="index" id="index" role="tablist" aria-label="ページ">
+            <button type="button" role="tab" data-tab="profile">プロフィール</button>
+            <button type="button" role="tab" data-tab="palette">カラーパレット</button>
+            <button type="button" role="tab" data-tab="mannequin">マネキン</button>
+            <button type="button" role="tab" data-tab="history">履歴</button>
+          </div>
+        </div>
+      </div>
+      <div class="pager"><button type="button" id="prevBtn"></button><button type="button" id="nextBtn"></button></div>
+    </div>
+  </main>
+
+  <!-- 作成・編集 -->
+  <main id="edit" hidden>
+    <div class="wrap">
+      <div class="page-head">
+        <div><a class="back" id="editBack" href="#zukan">← 戻る</a><h1 class="ab" id="editTitle" style="margin-top:8px">キャラを追加</h1></div>
+        <div class="grow"></div>
+      </div>
+      <form class="edit-grid" id="editForm" novalidate>
+        <div class="edit-left">
+          <div class="pol-s"><div class="portrait" id="ed-portrait"></div><div class="cap" id="ed-cap"></div></div>
+          <label class="drop" id="drop" for="ed-file">＋ イラストを選ぶ<small>ドラッグ＆ドロップもできます（JPEG・PNG）</small></label>
+          <input id="ed-file" type="file" accept="image/*" class="sr">
+          <button type="button" class="btn ghost" id="ed-clearimg" hidden>イラストを外す</button>
+        </div>
+        <div class="sheet paper">
+          <div class="head"><span id="ed-no">CHARACTER FILE</span><span>＊は必須</span></div>
+          <div class="row c3">
+            <div class="field"><label for="ed-name">名前＊</label><input id="ed-name" required maxlength="40"></div>
+            <div class="field"><label for="ed-kana">よみ・別名</label><input id="ed-kana" maxlength="40"></div>
+            <div class="field"><label for="ed-age">年齢</label><input id="ed-age" maxlength="10"></div>
+          </div>
+          <p class="err" id="ed-err" role="alert" hidden></p>
+          <div class="row c2">
+            <div class="field"><label for="ed-race">種族</label><input id="ed-race" list="races" maxlength="30"><datalist id="races"></datalist><span class="hint">今までの入力が候補に出ます（表記ゆれ防止）</span></div>
+            <div class="field"><label for="ed-faction">所属</label><input id="ed-faction" list="factions" maxlength="30"><datalist id="factions"></datalist></div>
+          </div>
+          <div class="field"><label for="ed-quote">ひとこと（左ページに載ります）</label><input id="ed-quote" maxlength="60"></div>
+          <div class="field"><label for="ed-personality">性格</label><textarea id="ed-personality" rows="3"></textarea></div>
+          <div class="field"><label for="ed-profile">プロフィール</label><textarea id="ed-profile" rows="4"></textarea></div>
+          <div class="field"><label for="ed-tagin">タグ</label><div class="tags-in" id="tags-in"><input id="ed-tagin" placeholder="入力してEnter"></div></div>
+          <div class="field"><span style="font-size:.78rem;font-weight:500">カラーパレット</span><div class="pal-edit" id="pal-edit"></div></div>
+          <div class="row c2">
+            <div class="field"><label for="ed-height">身長</label><div class="range"><input type="range" id="ed-height" min="80" max="230" step="1"><output id="o-height"></output></div></div>
+            <div class="field"><label for="ed-heads">頭身</label><div class="range"><input type="range" id="ed-heads" min="2" max="9" step="0.5"><output id="o-heads"></output></div></div>
+          </div>
+          <div class="field"><span style="font-size:.78rem;font-weight:500">体格</span>
+            <div class="seg" id="ed-build"><label><input type="radio" name="build" value="細身"><span>細身</span></label><label><input type="radio" name="build" value="標準"><span>標準</span></label><label><input type="radio" name="build" value="がっしり"><span>がっしり</span></label></div>
+          </div>
+          <div class="actions">
+            <div id="delBox"></div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap"><a class="btn ghost-ink" id="ed-cancel" href="#zukan">キャンセル</a><button class="btn ink" type="submit">保存する</button></div>
+          </div>
+        </div>
+      </form>
+    </div>
+  </main>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+'use strict';
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const reduce = matchMedia('(prefers-reduced-motion: reduce)');
+const narrow = matchMedia('(max-width: 900px)');
+const store = {
+  get(k, s){ try { const v = (s ? sessionStorage : localStorage).getItem(k); return v == null ? null : JSON.parse(v); } catch { return null; } },
+  set(k, v, s){ try { (s ? sessionStorage : localStorage).setItem(k, JSON.stringify(v)); return true; } catch { return false; } },
+  del(k, s){ try { (s ? sessionStorage : localStorage).removeItem(k); } catch {} }
+};
+const memSession = {};
+const sess = { get:k => store.get(k, true) ?? memSession[k] ?? null, set:(k,v) => { memSession[k] = v; store.set(k, v, true); } };
+
+// ---------- サンプル ----------
+const SAMPLES = [
+  {id:'s1', no:1, name:'リリア', kana:'Lilia', age:'17', race:'エルフ', faction:'白銀騎士団', quote:'負けたままで、帰れるもんか。',
+   personality:'負けず嫌いだが面倒見がよい。後輩の失敗は自分のことのように悔しがる。', profile:'青い瞳の見習い騎士。故郷の森を出て王都の騎士団に入り、副団長ガイのもとで修行中。剣より弓が得意なのは内緒。',
+   tags:['主人公','騎士団','見習い'], palette:[['髪','#C9D6FF'],['瞳','#4A7BD0'],['肌','#F6DCCB'],['衣装','#E9ECF2'],['差し色','#B8963E']], height:158, heads:6.5, build:'細身', hue:['#1b3b52','#5d8fb0','#e9e1b0']},
+  {id:'s2', no:2, name:'ガイ', kana:'Guy', age:'29', race:'人間', faction:'白銀騎士団', quote:'背中は預けろ。前は俺が見る。',
+   personality:'無口で不器用。部下には厳しいが、誰より先に頭を下げる。', profile:'白銀騎士団の副団長。黒曜帝国との国境戦で左目を負傷した。リリアの剣の師。甘いものに目がない。',
+   tags:['騎士団','師匠'], palette:[['髪','#3A2A22'],['瞳','#8A5A2E'],['肌','#E6C1A0'],['外套','#C8CCD4'],['傷','#9E4A3A']], height:182, heads:7.5, build:'がっしり', hue:['#3a1e1a','#8a4a32','#e9c88a']},
+  {id:'s3', no:3, name:'ミナ', kana:'Mina', age:'16', race:'エルフ', faction:'王都', quote:'地図にない道なら、私が描く。',
+   personality:'好奇心が強く、気になると止まらない。人の顔と名前を一度で覚える。', profile:'リリアの幼なじみ。王都の地図工房で見習いをしている。森を出たリリアを追って王都へ来た。',
+   tags:['幼なじみ','職人'], palette:[['髪','#E7D27A'],['瞳','#3E8E6A'],['肌','#F4E0CF'],['エプロン','#7A9A6E']], height:150, heads:6, build:'細身', hue:['#0e2a26','#2f7a62','#d8d070']},
+  {id:'s4', no:4, name:'黒の王', kana:'Noir', age:'不明', race:'魔族', faction:'黒曜帝国', quote:'約束は、守られるためにある。',
+   personality:'穏やかな口調で、決して嘘をつかない。だからこそ恐れられている。', profile:'黒曜帝国を治める魔族の王。百年前の盟約に縛られている。素顔を知る者は少ない。',
+   tags:['敵','王'], palette:[['髪','#1A1824'],['瞳','#B23A48'],['肌','#D9D2E6'],['王衣','#2A2240'],['金具','#C9A24A']], height:196, heads:8, build:'標準', hue:['#0a0a12','#2a2240','#8a7fb0']},
+  {id:'s5', no:5, name:'セラ', kana:'Sera', age:'19', race:'人間', faction:'王都', quote:'歌っているときだけ、本当のことが言える。',
+   personality:'人当たりがよく誰とでも話せるが、自分のことは話さない。', profile:'王都の酒場で歌う吟遊詩人。黒曜帝国の間者ではないかと噂されている。',
+   tags:['吟遊詩人','謎'], palette:[['髪','#7A3A5A'],['瞳','#D9A0B8'],['肌','#F2D6C8'],['衣装','#4A2E4E']], height:163, heads:7, build:'細身', hue:['#2a1a2a','#7a4a6a','#e9c0c8']},
+  {id:'s6', no:6, name:'ノクス', kana:'Nox', age:'22', race:'魔族', faction:'黒曜帝国', quote:'命令なら、従う。それだけだ。',
+   personality:'感情を表に出さない。命令には忠実だが、子どもには甘い。', profile:'黒の王の近衛。影を渡る魔法を使う。ガイとは過去に一度、剣を交えている。',
+   tags:['敵','近衛'], palette:[['髪','#BFC8CC'],['瞳','#3C6E8A'],['肌','#D8DCE0'],['装束','#1E2A30']], height:176, heads:7.5, build:'標準', hue:['#0b1418','#24485a','#9fc0c8']},
+];
+const KEY = 'artleave-demo-v1';
+let chars = store.get(KEY);
+if (!Array.isArray(chars)) chars = SAMPLES.map(c => ({...c, sample:true, updatedAt: Date.now() - c.no * 86400000 * 2}));
+const save = () => { if (!store.set(KEY, chars)) toast('このブラウザには保存できませんでした（ページを閉じると消えます）'); };
+const byId = id => chars.find(c => c.id === id);
+
+// ---------- 絵 ----------
+function portrait(c){
+  if (c.image) return `<img src="${c.image}" alt="${esc(c.name)}のイラスト">`;
+  const [a,b,d] = c.hue || ['#1f3a33','#4d7466','#d9c38f'];
+  const g = 'g' + Math.random().toString(36).slice(2,8);
+  return `<svg viewBox="0 0 200 250" preserveAspectRatio="xMidYMid slice" role="img" aria-label="${esc(c.name)}（イラスト未登録）"><defs><linearGradient id="${g}" x1="0" y1="0" x2=".6" y2="1"><stop offset="0" stop-color="${a}"/><stop offset=".6" stop-color="${b}"/><stop offset="1" stop-color="${d}"/></linearGradient></defs><rect width="200" height="250" fill="url(#${g})"/><circle cx="100" cy="104" r="30" fill="#000" opacity=".5"/><path d="M40 250 C44 176 74 152 100 152 C126 152 156 176 160 250Z" fill="#000" opacity=".5"/></svg>`;
+}
+function mannequin(c, opts = {}){
+  const H = +c.height || 160, heads = +c.heads || 7, k = c.build === '細身' ? .86 : c.build === 'がっしり' ? 1.2 : 1;
+  const skin = (c.palette || []).find(p => /肌/.test(p[0]))?.[1] || '#e2c08e';
+  const VB = 300, G = 288, px = 1.15; // 1cm = 1.15
+  const h = H * px / heads, top = G - H * px, cx = 150, y = f => top + H * px * f;
+  const sh = h * .95 * k, hip = h * .72 * k, shy = top + h * 1.3, wy = y(.42), cy = y(.5), ky = y(.73), ay = y(.955), ey = y(.38), wry = y(.5);
+  const L = (x1,y1,x2,y2,w) => `<path d="M${x1} ${y1}L${x2} ${y2}" stroke="#5b4326" stroke-width="${w+2.4}" stroke-linecap="round"/><path d="M${x1} ${y1}L${x2} ${y2}" stroke="url(#wd)" stroke-width="${w}" stroke-linecap="round"/>`;
+  const J = (x,yy,r) => `<circle cx="${x}" cy="${yy}" r="${r}" fill="#c99a5e" stroke="#5b4326" stroke-width="1.2"/>`;
+  const aw = h*.22*k, lw = h*.3*k;
+  let s = '';
+  for (let cm = 0; cm <= 220; cm += 10){ const yy = G - cm*px; s += `<path d="M0 ${yy}H${cm%50?10:20}" stroke="#14201c" stroke-width="${cm%50?.6:1.2}"/>`; if (cm%50===0) s += `<text x="24" y="${yy+3}" font-size="9" fill="#6b6a5f" font-family="sans-serif">${cm}</text>`; }
+  s += `<path d="M0 ${G}H${VB}" stroke="#14201c" stroke-width="1.5"/>`;
+  for (let i = 0; i <= Math.floor(heads); i++){ const yy = top + h*i; s += `<path d="M228 ${yy}H252" stroke="#1f7a4a" stroke-width="1"/>`; }
+  s += `<path d="M240 ${top}V${G}" stroke="#1f7a4a" stroke-width=".8"/><text x="256" y="${top+4}" font-size="10" fill="#1f7a4a" font-family="sans-serif" font-weight="700">${H}cm</text>`;
+  s += L(cx-sh,shy,cx-sh-h*.12,ey,aw) + L(cx-sh-h*.12,ey,cx-sh-h*.18,wry,aw*.85) + L(cx+sh,shy,cx+sh+h*.12,ey,aw) + L(cx+sh+h*.12,ey,cx+sh+h*.18,wry,aw*.85);
+  s += L(cx-hip*.55,cy,cx-hip*.5,ky,lw) + L(cx-hip*.5,ky,cx-hip*.48,ay,lw*.8) + L(cx+hip*.55,cy,cx+hip*.5,ky,lw) + L(cx+hip*.5,ky,cx+hip*.48,ay,lw*.8);
+  s += `<path d="M${cx-sh} ${shy-h*.08}Q${cx} ${shy-h*.25} ${cx+sh} ${shy-h*.08}L${cx+sh*.7} ${wy}L${cx-sh*.7} ${wy}Z" fill="url(#wd)" stroke="#5b4326" stroke-width="1.2"/>`;
+  s += `<path d="M${cx-sh*.62} ${wy+h*.06}L${cx+sh*.62} ${wy+h*.06}L${cx+hip} ${cy+h*.05}Q${cx} ${cy+h*.32} ${cx-hip} ${cy+h*.05}Z" fill="url(#wd)" stroke="#5b4326" stroke-width="1.2"/>`;
+  s += J(cx, wy+h*.03, h*.12) + L(cx, top+h*.95, cx, shy-h*.12, h*.2);
+  s += `<ellipse cx="${cx}" cy="${top+h*.5}" rx="${h*.38}" ry="${h*.5}" fill="${skin}" stroke="#5b4326" stroke-width="1.2"/>`;
+  [[cx-sh,shy,h*.13],[cx+sh,shy,h*.13],[cx-sh-h*.12,ey,h*.1],[cx+sh+h*.12,ey,h*.1],[cx-hip*.5,ky,h*.13],[cx+hip*.5,ky,h*.13]].forEach(a => s += J(...a));
+  return `<svg viewBox="0 0 ${VB} ${VB}" role="img" aria-label="身長${H}cm、${heads}頭身、${esc(c.build||'標準')}のデッサン人形"><defs><linearGradient id="wd" x1="0" x2="1"><stop offset="0" stop-color="#d9b17a"/><stop offset=".5" stop-color="#f0d6a8"/><stop offset="1" stop-color="#c99a5e"/></linearGradient></defs>${s}</svg>`;
+}
+
+// ---------- トースト ----------
+let tt;
+function toast(msg, color){ const t = $('#toast'); t.innerHTML = (color ? `<i style="background:${esc(color)}"></i>` : '') + esc(msg); t.classList.add('show'); clearTimeout(tt); tt = setTimeout(() => t.classList.remove('show'), 2200); }
+
+// ---------- ルーティング ----------
+const views = ['zukan','detail','edit'];
+function route(){
+  const logged = sess.get('artleave-login');
+  const h = location.hash.slice(1);
+  if (!logged){ $('#login').hidden = false; $('#app').hidden = true; return; }
+  $('#login').hidden = true; $('#app').hidden = false;
+  let m;
+  if ((m = h.match(/^c-([\w-]+)$/)) && byId(m[1])) show('detail', () => openDetail(m[1]));
+  else if ((m = h.match(/^edit-([\w-]+)$/)) && byId(m[1])) show('edit', () => openEdit(m[1]));
+  else if (h === 'new') show('edit', () => openEdit(null));
+  else show('zukan', renderZukan);
+  $('#nav-zukan').classList.toggle('on', h === '' || h === 'zukan' || h.startsWith('c-'));
+  $('#nav-new').classList.toggle('on', h === 'new');
+}
+let current = '';
+function show(v, fn){ views.forEach(x => $('#' + x).hidden = x !== v); if (current !== v) scrollTo(0, 0); if (v !== 'detail') shownId = null; current = v; fn(); }
+addEventListener('hashchange', route);
+
+// ---------- ログイン ----------
+$('#loginForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const em = $('#lg-email').value.trim(), pw = $('#lg-pass').value;
+  const err = $('#lg-err');
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) { err.textContent = 'メールアドレスの形で入力してください（例：demo@example.com）'; err.hidden = false; return; }
+  if (pw.length < 8) { err.textContent = 'パスワードは8文字以上です'; err.hidden = false; return; }
+  err.hidden = true; sess.set('artleave-login', true);
+  if (location.hash === '#zukan') route(); else location.hash = 'zukan';
+});
+$('#logout').addEventListener('click', () => { sess.set('artleave-login', false); location.hash = ''; route(); });
+
+// ---------- 図鑑 ----------
+let activeTag = null;
+function renderZukan(){
+  const q = $('#q').value.trim().toLowerCase();
+  const tags = [...new Set(chars.flatMap(c => c.tags || []))];
+  $('#tagbar').innerHTML = tags.map(t => `<button type="button" class="${t === activeTag ? 'on' : ''}" data-tag="${esc(t)}">#${esc(t)}</button>`).join('');
+  let list = chars.filter(c => (!activeTag || (c.tags||[]).includes(activeTag)) && (!q || [c.name,c.kana,c.race,c.faction,...(c.tags||[])].join(' ').toLowerCase().includes(q)));
+  const s = $('#sort').value;
+  list.sort(s === 'no' ? (a,b) => a.no - b.no : s === 'name' ? (a,b) => a.name.localeCompare(b.name, 'ja') : (a,b) => b.updatedAt - a.updatedAt);
+  $('#zk-count').textContent = `${chars.length}人のキャラクター ── 糸に吊るした写真から、図鑑のページをひらく。`;
+  const rots = [-4, 3, -2, 5, 2, -3, 4, -5];
+  $('#cards').innerHTML = (list.length ? list.map((c,i) => `
+    <a class="card" href="#c-${c.id}" style="--r:${rots[(c.no) % rots.length]}deg" aria-label="${esc(c.name)}のページをひらく">
+      <span class="clip"></span>
+      <div class="p"><div class="portrait">${portrait(c)}</div>
+        <div class="cap"><div class="nm"><span>${esc(c.name)}</span><span class="no">No.${String(c.no).padStart(3,'0')}</span></div>
+        <div class="meta">${esc([c.race, c.faction].filter(Boolean).join('／') || '　')}${c.sample ? ' <span class="sample">サンプル</span>' : ''}</div></div></div>
+    </a>`).join('') : `<p class="empty">条件に合うキャラがいません。検索語やタグを変えてみてください。</p>`)
+    + `<a class="card add" href="#new"><div class="p">＋ 写真を吊るす<br><small style="color:var(--muted)">新しいキャラを追加</small></div></a>`;
+}
+$('#q').addEventListener('input', renderZukan);
+$('#sort').addEventListener('change', renderZukan);
+$('#tagbar').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; activeTag = activeTag === b.dataset.tag ? null : b.dataset.tag; renderZukan(); });
+function bindReset(){
+  $('#resetBtn').onclick = () => {
+    $('#resetBox').innerHTML = `<span class="confirm">追加・編集した内容が消えます。<button type="button" id="rsYes">サンプルに戻す</button><button type="button" id="rsNo">やめる</button></span>`;
+    $('#rsYes').onclick = () => { chars = SAMPLES.map(c => ({...c, sample:true, updatedAt: Date.now() - c.no*86400000*2})); store.del(KEY); activeTag = null; restoreReset(); renderZukan(); toast('サンプルの状態に戻しました'); };
+    $('#rsNo').onclick = restoreReset;
+  };
+}
+function restoreReset(){ $('#resetBox').innerHTML = `<button type="button" id="resetBtn">サンプルの状態に戻す</button>`; bindReset(); }
+
+// ---------- 詳細（本） ----------
+let cur = { id:null, tab:'profile' }, busy = null;
+const ordered = () => [...chars].sort((a,b) => a.no - b.no);
+const fmt = t => new Date(t).toLocaleString('ja-JP', {year:'numeric', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'});
+function leftHTML(c){
+  const i = ordered().findIndex(x => x.id === c.id);
+  return `<div class="l-main"><span class="tape"></span><span class="tape b"></span><div class="portrait">${portrait(c)}</div>
+    <div class="cap"><span>${esc(c.name)}</span><small>${c.image ? 'メインイラスト' : 'イラスト未登録'}</small></div></div>
+    ${c.quote ? `<p class="l-quote">${esc(c.quote)}</p>` : ''}
+    <div class="folio">— ${i*2 + 12} —</div>`;
+}
+function rightHTML(c, tab){
+  const i = ordered().findIndex(x => x.id === c.id);
+  const rots = [1.5,-1.5,1,-2,1.5,-1];
+  let body = '';
+  if (tab === 'profile') body = `
+    ${c.personality ? `<div class="sec"><h3>性格</h3><p>${esc(c.personality)}</p></div>` : ''}
+    ${c.profile ? `<div class="sec"><h3>プロフィール</h3><p>${esc(c.profile)}</p></div>` : ''}
+    ${!c.personality && !c.profile ? `<div class="sec"><p style="color:var(--ink-2)">まだ書かれていません。「編集する」から性格やプロフィールを書き足せます。</p></div>` : ''}`;
+  if (tab === 'palette') body = `<div class="sec"><h3>カラーパレット</h3><p style="font-family:var(--sans);font-size:.8rem;color:var(--ink-2)">色をクリックするとカラーコードをコピーします。</p>
+    <div class="swatches">${(c.palette||[]).map((p,k) => `<button type="button" class="sw" style="--r:${rots[k%rots.length]}deg" data-hex="${esc(p[1])}" data-label="${esc(p[0])}"><i style="background:${esc(p[1])}"></i><b>${esc(p[0])}</b><code>${esc(p[1])}</code></button>`).join('') || '<p>まだ色がありません。</p>'}</div></div>`;
+  if (tab === 'mannequin') body = `<div class="sec"><h3>マネキン</h3><div class="mq">${mannequin(c)}<dl><dt>身長</dt><dd class="big">${esc(c.height)}<small style="font-size:.9rem">cm</small></dd><dt>頭身</dt><dd>${esc(c.heads)}</dd><dt>体格</dt><dd>${esc(c.build || '標準')}</dd></dl></div></div>`;
+  if (tab === 'history') body = `<div class="sec"><h3>履歴</h3><p style="font-family:var(--sans);font-size:.88rem;line-height:1.9">最終更新：${fmt(c.updatedAt)}${c.sample ? '<br><span class="sample">サンプル</span> デモ用に用意した例です。' : ''}<br><span style="color:var(--ink-2)">変更の差分を見る機能は、本番のアプリで実装予定です。</span></p></div>`;
+  return `<div class="file-no"><span>CHARACTER FILE&nbsp;&nbsp;No.${String(c.no).padStart(3,'0')}</span>${c.sample ? '<span class="sample">サンプル</span>' : ''}</div>
+    <div class="r-name"><h2 class="ab on-paper">${esc(c.name)}</h2>${c.kana ? `<span class="kana">${esc(c.kana)}</span>` : ''}</div>
+    <div class="r-meta">${esc([c.race, c.faction, c.age && c.age + (/\d$/.test(c.age) ? '歳' : ''), c.height && c.height + 'cm'].filter(Boolean).join(' ／ '))}</div>
+    <div class="r-tags">${(c.tags||[]).map((t,k) => `<span class="chip" style="--r:${rots[k%rots.length]*.6}deg">#${esc(t)}</span>`).join('')}</div>
+    ${body}<div class="folio">— ${i*2 + 13} —</div>`;
+}
+function setIndex(tab){ document.querySelectorAll('#index button').forEach(b => { const on = b.dataset.tab === tab; b.classList.toggle('on', on); b.setAttribute('aria-selected', on); }); }
+function setPager(c){
+  const o = ordered(), i = o.findIndex(x => x.id === c.id), p = o[i-1], n = o[i+1];
+  $('#prevBtn').disabled = !p; $('#prevBtn').textContent = p ? `‹ 前のキャラ　${p.name}` : '';
+  $('#nextBtn').disabled = !n; $('#nextBtn').textContent = n ? `次のキャラ　${n.name} ›` : '';
+  $('#prevBtn').dataset.id = p?.id || ''; $('#nextBtn').dataset.id = n?.id || '';
+  $('#editBtn').href = '#edit-' + c.id;
+}
+const animate = (el, kf, opt) => el.animate(kf, {fill:'forwards', ...opt});
+function makeLeaf(dir, frontHTML, backHTML, cls = ''){
+  const leaf = document.createElement('div'); leaf.className = `leaf ${dir} ${cls}`;
+  const side = dir === 'fwd' ? ['r','l'] : ['l','r'];
+  leaf.innerHTML = `<div class="face front">${frontHTML != null ? `<div class="pg ${side[0]}">${frontHTML}</div>` : ''}<span class="shade"></span></div><div class="face back">${backHTML != null ? `<div class="pg ${side[1]}">${backHTML}</div>` : ''}<span class="shade"></span></div>`;
+  $('#book').appendChild(leaf); return leaf;
+}
+async function flip(dir, newC, newTab){
+  const L = $('#pgL'), R = $('#pgR');
+  const nl = leftHTML(newC), nr = rightHTML(newC, newTab);
+  if (reduce.matches || narrow.matches){
+    const a = $('#book').animate([{opacity:1},{opacity:.15}], {duration:140}); await a.finished;
+    L.innerHTML = nl; R.innerHTML = nr; $('#book').animate([{opacity:.15},{opacity:1}], {duration:200}); return;
+  }
+  const leaf = dir === 'fwd' ? makeLeaf('fwd', R.innerHTML, nl) : makeLeaf('bwd', L.innerHTML, nr);
+  if (dir === 'fwd') R.innerHTML = nr; else L.innerHTML = nl;
+  const a = animate(leaf, [{transform:'rotateY(0deg)'},{transform:`rotateY(${dir === 'fwd' ? -180 : 180}deg)`}], {duration:680, easing:'cubic-bezier(.45,.05,.3,1)'});
+  leaf.querySelectorAll('.shade').forEach(s => animate(s, [{opacity:0},{opacity:1, offset:.5},{opacity:0}], {duration:680}));
+  busy = a; await a.finished.catch(() => {}); busy = null;
+  if (dir === 'fwd') L.innerHTML = nl; else R.innerHTML = nr;
+  leaf.remove();
+}
+async function riffleOpen(c){
+  const L = $('#pgL'), R = $('#pgR'), book = $('#book');
+  L.innerHTML = ''; R.innerHTML = rightHTML(c, cur.tab);
+  L.style.visibility = 'hidden';
+  const N = 6, leaves = [];
+  for (let i = 0; i < N; i++) leaves.push(makeLeaf('fwd', null, i === N-1 ? leftHTML(c) : null, 'blank'));
+  const cover = makeLeaf('fwd', null, null);
+  cover.querySelector('.front').classList.add('cover'); cover.querySelector('.front').insertAdjacentHTML('afterbegin', '<div><div class="t">Artリーブ</div><div class="s">CHARACTER ALBUM</div></div>');
+  cover.querySelector('.back').classList.add('inside');
+  const anims = [], timers = [];
+  const later = (fn, ms) => timers.push(setTimeout(fn, ms));
+  anims.push(book.animate([{opacity:0, transform:'translateY(16px) scale(.98)'},{opacity:1, transform:'none'}], {duration:260, easing:'ease-out'}));
+  // めくる前は右側に積み、90度を越えたら左側の重なり順に入れ替える
+  const go = (el, delay, dur, zAfter) => {
+    anims.push(animate(el, [{transform:'rotateY(0deg)'},{transform:'rotateY(-180deg)'}], {duration:dur, delay, easing:'cubic-bezier(.5,.1,.3,1)'}));
+    el.querySelectorAll('.shade').forEach(s => anims.push(animate(s, [{opacity:0},{opacity:1,offset:.5},{opacity:0}], {duration:dur, delay})));
+    later(() => { el.style.zIndex = zAfter; }, delay + dur / 2);
+  };
+  cover.style.zIndex = 40;
+  leaves.forEach((lf, i) => lf.style.zIndex = 39 - i);
+  go(cover, 220, 420, 21);
+  later(() => { L.style.visibility = 'visible'; L.style.background = 'repeating-linear-gradient(45deg,#c9bfa6 0 6px,#d4cab2 6px 12px)'; }, 430);
+  leaves.forEach((lf, i) => go(lf, 480 + i * 60, 330, 22 + i)); // 最後の1枚が左ページの中身を持つ
+  busy = { finish(){ anims.forEach(a => { try { a.finish(); } catch {} }); } };
+  await Promise.all(anims.map(a => a.finished.catch(() => {})));
+  timers.forEach(clearTimeout);
+  busy = null;
+  L.style.visibility = 'visible'; L.style.background = ''; L.innerHTML = leftHTML(c);
+  [...leaves, cover].forEach(l => l.remove());
+}
+let shownId = null; // いま本に表示しているキャラ
+function openDetail(id){
+  const c = byId(id); if (!c || shownId === id) return;
+  shownId = id; cur.id = id; cur.tab = 'profile';
+  setIndex(cur.tab); setPager(c);
+  if (!reduce.matches && !narrow.matches && !sess.get('artleave-riffled')){
+    sess.set('artleave-riffled', true); riffleOpen(c);
+  } else {
+    $('#pgL').innerHTML = leftHTML(c); $('#pgR').innerHTML = rightHTML(c, cur.tab);
+    if (!reduce.matches) $('#book').animate([{opacity:0, transform:'translateY(10px)'},{opacity:1, transform:'none'}], {duration:320, easing:'ease-out'});
+  }
+}
+// 詳細の中での移動（URLを変えつつ、めくる）
+async function goChar(id, dir){
+  if (!id || busy) return;
+  const c = byId(id); cur.id = id; shownId = id;
+  try { history.replaceState(null, '', '#c-' + id); } catch {}
+  setPager(c); await flip(dir, c, cur.tab);
+}
+$('#prevBtn').addEventListener('click', e => goChar(e.currentTarget.dataset.id, 'bwd'));
+$('#nextBtn').addEventListener('click', e => goChar(e.currentTarget.dataset.id, 'fwd'));
+$('#index').addEventListener('click', async e => {
+  const b = e.target.closest('button'); if (!b || busy || b.dataset.tab === cur.tab) return;
+  const tabs = ['profile','palette','mannequin','history'], dir = tabs.indexOf(b.dataset.tab) > tabs.indexOf(cur.tab) ? 'fwd' : 'bwd';
+  cur.tab = b.dataset.tab; setIndex(cur.tab);
+  const c = byId(cur.id); await flip(dir, c, cur.tab);
+});
+$('#stage').addEventListener('click', e => {
+  if (busy) { busy.finish(); return; }
+  const sw = e.target.closest('.sw'); if (!sw) return;
+  const hex = sw.dataset.hex;
+  const done = () => toast(`${hex}（${sw.dataset.label}）をコピーしました`, hex);
+  try { navigator.clipboard.writeText(hex).then(done, () => toast(`${hex}（${sw.dataset.label}）`, hex)); } catch { toast(`${hex}（${sw.dataset.label}）`, hex); }
+}, true);
+addEventListener('keydown', e => {
+  if (current !== 'detail' || $('#app').hidden || /input|textarea|select/i.test(e.target.tagName)) return;
+  if (busy) { busy.finish(); return; }
+  if (e.key === 'ArrowRight') $('#nextBtn').click();
+  if (e.key === 'ArrowLeft') $('#prevBtn').click();
+});
+let tx0 = null;
+$('#stage').addEventListener('touchstart', e => tx0 = e.touches[0].clientX, {passive:true});
+$('#stage').addEventListener('touchend', e => { if (tx0 == null) return; const dx = e.changedTouches[0].clientX - tx0; tx0 = null; if (Math.abs(dx) > 60) (dx < 0 ? $('#nextBtn') : $('#prevBtn')).click(); });
+
+// ---------- 作成・編集 ----------
+let draft = null;
+const DEFAULT_PAL = [['髪','#5A4632'],['瞳','#3E6E8A'],['肌','#F2D8C4'],['衣装','#E9ECF2'],['差し色','#B8963E']];
+function openEdit(id){
+  const c = id ? byId(id) : null;
+  draft = c ? JSON.parse(JSON.stringify(c)) : { id:null, no: Math.max(0, ...chars.map(x => x.no)) + 1, name:'', kana:'', age:'', race:'', faction:'', quote:'', personality:'', profile:'', tags:[], palette: DEFAULT_PAL.map(p => [...p]), height:160, heads:7, build:'標準', image:null, hue:['#1f3a33','#4d7466','#d9c38f'] };
+  $('#editTitle').textContent = c ? `${c.name}を編集` : 'キャラを追加';
+  $('#editBack').href = $('#ed-cancel').href = c ? '#c-' + c.id : '#zukan';
+  $('#editBack').textContent = c ? `← ${c.name}のページへ戻る` : '← 図鑑へ戻る';
+  $('#ed-no').textContent = `CHARACTER FILE  No.${String(draft.no).padStart(3,'0')}`;
+  for (const k of ['name','kana','age','race','faction','quote','personality','profile']) $('#ed-' + k).value = draft[k] || '';
+  $('#ed-height').value = draft.height; $('#ed-heads').value = draft.heads;
+  document.querySelectorAll('input[name=build]').forEach(r => r.checked = r.value === (draft.build || '標準'));
+  $('#races').innerHTML = [...new Set(chars.map(x => x.race).filter(Boolean))].map(r => `<option value="${esc(r)}">`).join('');
+  $('#factions').innerHTML = [...new Set(chars.map(x => x.faction).filter(Boolean))].map(r => `<option value="${esc(r)}">`).join('');
+  $('#ed-err').hidden = true;
+  $('#delBox').innerHTML = c ? `<button type="button" class="btn ghost-ink" id="delBtn">このキャラを削除</button>` : '';
+  if (c) $('#delBtn').onclick = askDelete;
+  renderTags(); renderPal(); renderPreview();
+}
+function renderPreview(){
+  $('#ed-portrait').innerHTML = portrait({...draft, name: draft.name || '名前未入力'});
+  $('#ed-cap').textContent = $('#ed-name').value || '名前未入力';
+  $('#ed-clearimg').hidden = !draft.image;
+  $('#o-height').textContent = $('#ed-height').value + 'cm';
+  $('#o-heads').textContent = $('#ed-heads').value + '頭身';
+}
+function renderTags(){
+  const box = $('#tags-in'), inp = $('#ed-tagin');
+  box.querySelectorAll('.chip').forEach(n => n.remove());
+  draft.tags.forEach((t,i) => inp.insertAdjacentHTML('beforebegin', `<span class="chip">#${esc(t)}<button type="button" data-i="${i}" aria-label="${esc(t)}を外す">×</button></span>`));
+}
+$('#tags-in').addEventListener('click', e => { const b = e.target.closest('button[data-i]'); if (b){ draft.tags.splice(+b.dataset.i, 1); renderTags(); } else $('#ed-tagin').focus(); });
+$('#ed-tagin').addEventListener('keydown', e => {
+  const v = e.target.value.replace(/^#/, '').trim();
+  if ((e.key === 'Enter' || e.key === ',') && !e.isComposing){ e.preventDefault(); if (v && !draft.tags.includes(v)) draft.tags.push(v); e.target.value = ''; renderTags(); }
+  if (e.key === 'Backspace' && !e.target.value && draft.tags.length){ draft.tags.pop(); renderTags(); }
+});
+function renderPal(){
+  $('#pal-edit').innerHTML = draft.palette.map((p,i) => `<div class="pe"><input type="color" id="pc-${i}" value="${esc(p[1])}" aria-label="${esc(p[0])}の色"><input type="text" id="pl-${i}" value="${esc(p[0])}" aria-label="色${i+1}の名前" maxlength="8"></div>`).join('')
+    + (draft.palette.length < 8 ? `<button type="button" class="btn ghost-ink" id="pal-add" style="height:48px;align-self:flex-start">＋ 色</button>` : '');
+  const add = $('#pal-add'); if (add) add.onclick = () => { draft.palette.push(['新しい色','#888888']); renderPal(); };
+}
+$('#pal-edit').addEventListener('input', e => { const m = e.target.id.match(/^p([cl])-(\d+)$/); if (!m) return; draft.palette[+m[2]][m[1] === 'c' ? 1 : 0] = m[1] === 'c' ? e.target.value.toUpperCase() : e.target.value; });
+['ed-height','ed-heads','ed-name'].forEach(id => $('#' + id).addEventListener('input', renderPreview));
+function readImage(file){
+  if (!file || !/^image\//.test(file.type)) { toast('画像ファイルを選んでください'); return; }
+  const fr = new FileReader();
+  fr.onload = () => { const img = new Image(); img.onload = () => {
+    const max = 720, r = Math.min(1, max / Math.max(img.width, img.height));
+    const cv = document.createElement('canvas'); cv.width = Math.round(img.width * r); cv.height = Math.round(img.height * r);
+    cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+    draft.image = cv.toDataURL('image/jpeg', .82); renderPreview(); toast('イラストを読み込みました');
+  }; img.onerror = () => toast('この画像は読み込めませんでした'); img.src = fr.result; };
+  fr.readAsDataURL(file);
+}
+$('#ed-file').addEventListener('change', e => { readImage(e.target.files[0]); e.target.value = ''; });
+$('#ed-clearimg').addEventListener('click', () => { draft.image = null; renderPreview(); });
+const drop = $('#drop');
+['dragenter','dragover'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave','drop'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', e => readImage(e.dataTransfer.files[0]));
+$('#editForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const name = $('#ed-name').value.trim();
+  if (!name) { const er = $('#ed-err'); er.textContent = '名前を入力してください'; er.hidden = false; $('#ed-name').focus(); return; }
+  for (const k of ['name','kana','age','race','faction','quote','personality','profile']) draft[k] = $('#ed-' + k).value.trim();
+  const pending = $('#ed-tagin').value.replace(/^#/, '').trim(); if (pending && !draft.tags.includes(pending)) draft.tags.push(pending);
+  draft.height = +$('#ed-height').value; draft.heads = +$('#ed-heads').value;
+  draft.build = document.querySelector('input[name=build]:checked')?.value || '標準';
+  draft.updatedAt = Date.now(); draft.sample = false;
+  if (!draft.id){ draft.id = 'c' + Date.now().toString(36); chars.push(draft); }
+  else chars[chars.findIndex(x => x.id === draft.id)] = draft;
+  save(); toast(`「${draft.name}」を保存しました`);
+  cur.id = null; location.hash = 'c-' + draft.id;
+});
+function askDelete(){
+  $('#delBox').innerHTML = `<span class="confirm">本当に削除しますか？<button type="button" class="btn danger" id="delYes">削除する</button><button type="button" class="btn ghost-ink" id="delNo">やめる</button></span>`;
+  $('#delNo').onclick = () => { $('#delBox').innerHTML = `<button type="button" class="btn ghost-ink" id="delBtn">このキャラを削除</button>`; $('#delBtn').onclick = askDelete; };
+  $('#delYes').onclick = () => { const n = draft.name; chars = chars.filter(x => x.id !== draft.id); save(); toast(`「${n}」を削除しました`); cur.id = null; location.hash = 'zukan'; };
+}
+
+bindReset();
+route();
+})();
+</script>
+
+</body>
+</html>
