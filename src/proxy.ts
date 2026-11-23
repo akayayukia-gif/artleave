@@ -27,6 +27,6 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // 画像・CSS などの静的ファイルは対象外
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  // 画像・CSS などの静的ファイルは対象外（public/photos はログイン画面の背景写真）
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|photos/).*)"],
 };

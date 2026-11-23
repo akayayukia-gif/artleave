@@ -1,5 +1,6 @@
 import "server-only";
 import { redirect } from "next/navigation";
+import { connection } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/server/db";
 
@@ -10,6 +11,9 @@ import { db } from "@/server/db";
 export type CurrentUser = { id: string; displayName: string };
 
 export async function getCurrentUser(): Promise<CurrentUser> {
+  // ユーザーごとのデータは事前描画（先読み）に含めず、必ずリクエストのたびに読む。
+  // これがないと、Cookie と URL だけで描画できる先読みの途中で DB 接続などの乱数を使い、エラーになる
+  await connection();
   const session = await auth();
   const userId = session?.user?.id;
   if (!userId) redirect("/login");

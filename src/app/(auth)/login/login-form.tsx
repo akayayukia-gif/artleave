@@ -31,12 +31,12 @@ export function LoginForm() {
         required
         errors={state.fieldErrors?.password}
       />
-      <SubmitButton pending={pending}>ログイン</SubmitButton>
+      <SubmitButton pending={pending}>ひらく　→</SubmitButton>
       <div className="flex justify-between text-sm">
-        <Link href="/signup" className="text-accent hover:underline">
+        <Link href="/signup" className="font-medium text-ok hover:underline">
           新規登録
         </Link>
-        <Link href="/password-reset" className="text-muted hover:text-text">
+        <Link href="/password-reset" className="text-ink-muted hover:text-ink">
           パスワードを忘れた方
         </Link>
       </div>

@@ -1,57 +1,163 @@
 @import "tailwindcss";
 
 /*
- * テーマの色（画面設計書 1. デザイン方針）
- * ダーク基調：背景は紺に近い黒、文字はオフホワイト、アクセントは淡い金色。
+ * デザイン：案A「フィルム写真」（Figma「コンポーネント（案A）」／画面設計書 1. デザイン方針）
+ * 緑がかった机の上に、紙・ポラロイド写真・糸で図鑑を綴じる見た目。
  * テーマ切替（F-12）は <html data-theme="..."> の値で変数を差し替えるだけで行う。
  */
 :root,
 [data-theme="dark"] {
-  --bg: #0b0e17;
-  --surface: #141a29;
-  --surface-raised: #1c2436;
-  --border: #2a3448;
-  --text: #ece8df;
-  --text-muted: #9aa3b5;
-  --accent: #d6b878;
-  --accent-strong: #e8cd92;
-  --danger: #e4807a;
+  /* 机（背景） */
+  --desk: #253a33;
+  --desk-deep: #15241f;
+  --glow: #4d7466;
+  /* 紙とインク（カード・入力欄） */
+  --paper: #ece6d8;
+  --paper-2: #f6f1e6;
+  --ink: #14201c;
+  --ink-muted: #6b6a5f;
+  /* 机の上の文字 */
+  --text: #f3efe6;
+  --text-muted: #cdc8b8;
+  /* 差し色 */
+  --gold: #d9c38f;
+  --clip: #b9a26a;
+  --green: #4fd18b;
+  --ok: #1f7a4a;
+  --danger: #c8483b;
+  --danger-on-desk: #ff9a8f;
   color-scheme: dark;
 }
 
+/* ライトテーマ（F-12 で切り替えられるようにする。机を明るい木目色にする想定） */
 [data-theme="light"] {
-  --bg: #f6f3ec;
-  --surface: #ffffff;
-  --surface-raised: #fbf9f4;
-  --border: #ddd6c8;
-  --text: #1d2230;
-  --text-muted: #5d6475;
-  --accent: #8a6a24;
-  --accent-strong: #6f5419;
-  --danger: #b33a32;
+  --desk: #d9d2c0;
+  --desk-deep: #c4bba5;
+  --glow: #efe9da;
+  --text: #14201c;
+  --text-muted: #4f5049;
+  --gold: #8a6a24;
+  --green: #1f7a4a;
+  --danger-on-desk: #b33a32;
   color-scheme: light;
 }
 
 @theme inline {
-  --color-bg: var(--bg);
-  --color-surface: var(--surface);
-  --color-surface-raised: var(--surface-raised);
-  --color-border: var(--border);
+  --color-desk: var(--desk);
+  --color-paper: var(--paper);
+  --color-paper-2: var(--paper-2);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
   --color-text: var(--text);
   --color-muted: var(--text-muted);
-  --color-accent: var(--accent);
-  --color-accent-strong: var(--accent-strong);
+  --color-gold: var(--gold);
+  --color-clip: var(--clip);
+  --color-green: var(--green);
+  --color-ok: var(--ok);
   --color-danger: var(--danger);
-  /* 見出しは明朝系、本文はゴシック系（端末に入っているフォントを使う） */
+  --color-danger-on-desk: var(--danger-on-desk);
+  /* 見出しは明朝、本文はゴシック。Noto は layout.tsx で Google Fonts から読み込む */
   --font-sans:
-    "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Yu Gothic", Meiryo, "Noto Sans JP",
+    "Noto Sans JP", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Yu Gothic", Meiryo,
     sans-serif;
-  --font-serif: "Hiragino Mincho ProN", "Yu Mincho", YuMincho, "Noto Serif JP", serif;
+  --font-serif: "Noto Serif JP", "Hiragino Mincho ProN", "Yu Mincho", YuMincho, serif;
 }
 
 body {
-  background: var(--bg);
+  background-color: var(--desk-deep);
+  background-image: radial-gradient(
+    120% 90% at 50% 35%,
+    var(--glow) 0%,
+    var(--desk) 45%,
+    var(--desk-deep) 100%
+  );
+  background-attachment: fixed;
   color: var(--text);
+}
+
+/* フィルムの粒 */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 50;
+  opacity: 0.1;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+/* 周辺減光 */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 49;
+  background: radial-gradient(ellipse at center, transparent 60%, rgb(0 0 0 / 0.3) 100%);
+}
+
+@layer components {
+  /* 赤と青緑に少しずらした明朝の見出し */
+  .heading-film {
+    font-family: var(--font-serif);
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    line-height: 1.15;
+    text-wrap: balance;
+    text-shadow:
+      -3px 0 rgb(255 59 59 / 0.42),
+      3px 1px rgb(40 224 208 / 0.42);
+  }
+  .heading-film-ink {
+    text-shadow:
+      -2px 0 rgb(255 59 59 / 0.3),
+      2px 1px rgb(40 224 208 / 0.3);
+  }
+
+  /* 紙のカード */
+  .paper-card {
+    background: var(--paper);
+    color: var(--ink);
+    box-shadow: 0 20px 40px rgb(0 0 0 / 0.45);
+  }
+
+  /* マスキングテープ */
+  .tape {
+    position: absolute;
+    width: 110px;
+    height: 28px;
+    background: rgb(217 195 143 / 0.72);
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.15);
+  }
+
+  /* 物干しの糸に吊るしたポラロイド（図鑑） */
+  .hung::before {
+    content: "";
+    position: absolute;
+    top: 12px;
+    left: -24px;
+    right: -24px;
+    height: 2px;
+    background: var(--gold);
+    opacity: 0.7;
+  }
+  .hung-clip {
+    position: absolute;
+    z-index: 2;
+    top: -6px;
+    left: 50%;
+    width: 16px;
+    height: 38px;
+    margin-left: -8px;
+    border-radius: 3px;
+    background: var(--clip);
+    box-shadow: 0 2px 3px rgb(0 0 0 / 0.4);
+  }
+
+  /* 写真に古いフィルムの色味をかける */
+  .film-tone {
+    filter: saturate(0.72) contrast(1.08) hue-rotate(-8deg) sepia(0.12);
+  }
 }
 
 /* 画面切り替え時のふわっとした表示（動きを減らす設定の人には止める） */
