@@ -331,7 +331,7 @@ body::before{top:0}
         <label class="sort"><span class="sr">並び替え</span><select id="sort"><option value="upd">更新日順</option><option value="no">番号順</option><option value="name">名前順</option></select></label>
       </div>
       <div class="line" id="cards"></div>
-      <div class="foot"><span>灰色の「サンプル」はデモ用の例です。追加・編集した内容はこのブラウザに保存されます。</span><span id="resetBox"><button type="button" id="resetBtn">サンプルの状態に戻す</button></span></div>
+      <div class="foot"><span>「サンプル」はデモ用の仮のキャラです。追加・編集した内容はこのブラウザに保存されます。</span><span id="resetBox"><button type="button" id="resetBtn">サンプルの状態に戻す</button></span></div>
     </div>
   </main>
 
@@ -426,26 +426,14 @@ const sess = { get:k => store.get(k, true) ?? memSession[k] ?? null, set:(k,v) =
 
 // ---------- サンプル ----------
 const SAMPLES = [
-  {id:'s1', no:1, name:'リリア', kana:'Lilia', age:'17', race:'エルフ', faction:'白銀騎士団', quote:'負けたままで、帰れるもんか。',
-   personality:'負けず嫌いだが面倒見がよい。後輩の失敗は自分のことのように悔しがる。', profile:'青い瞳の見習い騎士。故郷の森を出て王都の騎士団に入り、副団長ガイのもとで修行中。剣より弓が得意なのは内緒。',
-   tags:['主人公','騎士団','見習い'], palette:[['髪','#C9D6FF'],['瞳','#4A7BD0'],['肌','#F6DCCB'],['衣装','#E9ECF2'],['差し色','#B8963E']], height:158, heads:6.5, build:'細身', hue:['#1b3b52','#5d8fb0','#e9e1b0']},
-  {id:'s2', no:2, name:'ガイ', kana:'Guy', age:'29', race:'人間', faction:'白銀騎士団', quote:'背中は預けろ。前は俺が見る。',
-   personality:'無口で不器用。部下には厳しいが、誰より先に頭を下げる。', profile:'白銀騎士団の副団長。黒曜帝国との国境戦で左目を負傷した。リリアの剣の師。甘いものに目がない。',
-   tags:['騎士団','師匠'], palette:[['髪','#3A2A22'],['瞳','#8A5A2E'],['肌','#E6C1A0'],['外套','#C8CCD4'],['傷','#9E4A3A']], height:182, heads:7.5, build:'がっしり', hue:['#3a1e1a','#8a4a32','#e9c88a']},
-  {id:'s3', no:3, name:'ミナ', kana:'Mina', age:'16', race:'エルフ', faction:'王都', quote:'地図にない道なら、私が描く。',
-   personality:'好奇心が強く、気になると止まらない。人の顔と名前を一度で覚える。', profile:'リリアの幼なじみ。王都の地図工房で見習いをしている。森を出たリリアを追って王都へ来た。',
-   tags:['幼なじみ','職人'], palette:[['髪','#E7D27A'],['瞳','#3E8E6A'],['肌','#F4E0CF'],['エプロン','#7A9A6E']], height:150, heads:6, build:'細身', hue:['#0e2a26','#2f7a62','#d8d070']},
-  {id:'s4', no:4, name:'黒の王', kana:'Noir', age:'不明', race:'魔族', faction:'黒曜帝国', quote:'約束は、守られるためにある。',
-   personality:'穏やかな口調で、決して嘘をつかない。だからこそ恐れられている。', profile:'黒曜帝国を治める魔族の王。百年前の盟約に縛られている。素顔を知る者は少ない。',
-   tags:['敵','王'], palette:[['髪','#1A1824'],['瞳','#B23A48'],['肌','#D9D2E6'],['王衣','#2A2240'],['金具','#C9A24A']], height:196, heads:8, build:'標準', hue:['#0a0a12','#2a2240','#8a7fb0']},
-  {id:'s5', no:5, name:'セラ', kana:'Sera', age:'19', race:'人間', faction:'王都', quote:'歌っているときだけ、本当のことが言える。',
-   personality:'人当たりがよく誰とでも話せるが、自分のことは話さない。', profile:'王都の酒場で歌う吟遊詩人。黒曜帝国の間者ではないかと噂されている。',
-   tags:['吟遊詩人','謎'], palette:[['髪','#7A3A5A'],['瞳','#D9A0B8'],['肌','#F2D6C8'],['衣装','#4A2E4E']], height:163, heads:7, build:'細身', hue:['#2a1a2a','#7a4a6a','#e9c0c8']},
-  {id:'s6', no:6, name:'ノクス', kana:'Nox', age:'22', race:'魔族', faction:'黒曜帝国', quote:'命令なら、従う。それだけだ。',
-   personality:'感情を表に出さない。命令には忠実だが、子どもには甘い。', profile:'黒の王の近衛。影を渡る魔法を使う。ガイとは過去に一度、剣を交えている。',
-   tags:['敵','近衛'], palette:[['髪','#BFC8CC'],['瞳','#3C6E8A'],['肌','#D8DCE0'],['装束','#1E2A30']], height:176, heads:7.5, build:'標準', hue:['#0b1418','#24485a','#9fc0c8']},
+  {id:'s1', no:1, name:'キャラクター01', kana:'', age:'', race:'', faction:'', quote:'', personality:'', profile:'', tags:['サンプル'], palette:[['髪','#C9D6FF'],['瞳','#4A7BD0'],['肌','#F6DCCB'],['衣装','#E9ECF2']], height:158, heads:6.5, build:'細身', hue:['#1b3b52', '#5d8fb0', '#e9e1b0']},
+  {id:'s2', no:2, name:'キャラクター02', kana:'', age:'', race:'', faction:'', quote:'', personality:'', profile:'', tags:['サンプル'], palette:[['髪','#3A2A22'],['瞳','#8A5A2E'],['肌','#E6C1A0'],['衣装','#C8CCD4']], height:182, heads:7.5, build:'がっしり', hue:['#3a1e1a', '#8a4a32', '#e9c88a']},
+  {id:'s3', no:3, name:'キャラクター03', kana:'', age:'', race:'', faction:'', quote:'', personality:'', profile:'', tags:['サンプル'], palette:[['髪','#E7D27A'],['瞳','#3E8E6A'],['肌','#F4E0CF'],['衣装','#7A9A6E']], height:150, heads:6, build:'細身', hue:['#0e2a26', '#2f7a62', '#d8d070']},
+  {id:'s4', no:4, name:'キャラクター04', kana:'', age:'', race:'', faction:'', quote:'', personality:'', profile:'', tags:['サンプル'], palette:[['髪','#1A1824'],['瞳','#B23A48'],['肌','#D9D2E6'],['衣装','#2A2240']], height:196, heads:8, build:'標準', hue:['#0a0a12', '#2a2240', '#8a7fb0']},
+  {id:'s5', no:5, name:'キャラクター05', kana:'', age:'', race:'', faction:'', quote:'', personality:'', profile:'', tags:['サンプル'], palette:[['髪','#7A3A5A'],['瞳','#D9A0B8'],['肌','#F2D6C8'],['衣装','#4A2E4E']], height:163, heads:7, build:'細身', hue:['#2a1a2a', '#7a4a6a', '#e9c0c8']},
+  {id:'s6', no:6, name:'キャラクター06', kana:'', age:'', race:'', faction:'', quote:'', personality:'', profile:'', tags:['サンプル'], palette:[['髪','#BFC8CC'],['瞳','#3C6E8A'],['肌','#D8DCE0'],['衣装','#1E2A30']], height:176, heads:7.5, build:'標準', hue:['#0b1418', '#24485a', '#9fc0c8']},
 ];
-const KEY = 'artleave-demo-v1';
+const KEY = 'artleave-demo-v2';
 let chars = store.get(KEY);
 if (!Array.isArray(chars)) chars = SAMPLES.map(c => ({...c, sample:true, updatedAt: Date.now() - c.no * 86400000 * 2}));
 const save = () => { if (!store.set(KEY, chars)) toast('このブラウザには保存できませんでした（ページを閉じると消えます）'); };
@@ -567,7 +555,7 @@ function rightHTML(c, tab){
   if (tab === 'profile') body = `
     ${c.personality ? `<div class="sec"><h3>性格</h3><p>${esc(c.personality)}</p></div>` : ''}
     ${c.profile ? `<div class="sec"><h3>プロフィール</h3><p>${esc(c.profile)}</p></div>` : ''}
-    ${!c.personality && !c.profile ? `<div class="sec"><p style="color:var(--ink-2)">まだ書かれていません。「編集する」から性格やプロフィールを書き足せます。</p></div>` : ''}`;
+    ${!c.personality && !c.profile ? `<div class="sec"><p style="color:var(--ink-2)">ここに性格やプロフィールが載ります。「編集する」から書き込んでみてください。</p></div>` : ''}`;
   if (tab === 'palette') body = `<div class="sec"><h3>カラーパレット</h3><p style="font-family:var(--sans);font-size:.8rem;color:var(--ink-2)">色をクリックするとカラーコードをコピーします。</p>
     <div class="swatches">${(c.palette||[]).map((p,k) => `<button type="button" class="sw" style="--r:${rots[k%rots.length]}deg" data-hex="${esc(p[1])}" data-label="${esc(p[0])}"><i style="background:${esc(p[1])}"></i><b>${esc(p[0])}</b><code>${esc(p[1])}</code></button>`).join('') || '<p>まだ色がありません。</p>'}</div></div>`;
   if (tab === 'mannequin') body = `<div class="sec"><h3>マネキン</h3><div class="mq">${mannequin(c)}<dl><dt>身長</dt><dd class="big">${esc(c.height)}<small style="font-size:.9rem">cm</small></dd><dt>頭身</dt><dd>${esc(c.heads)}</dd><dt>体格</dt><dd>${esc(c.build || '標準')}</dd></dl></div></div>`;
